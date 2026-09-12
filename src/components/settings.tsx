@@ -1,12 +1,11 @@
 "use client";
 import { useState, type FormEvent } from "react";
-import { planDetails, planName, plans, type Plan } from "@/lib/config";
+import { planDetails, planName, plans } from "@/lib/config";
 import { usePortal } from "./portal-provider";
 import { Badge, Icon, Panel } from "./ui";
 export function Settings() {
-  const { user, updateUser, switchPlan, toast } = usePortal();
+  const { user, updateUser, requestUpgrade, toast } = usePortal();
   const [busy, setBusy] = useState(false),
-    [planBusy, setPlanBusy] = useState<Plan | null>(null),
     [error, setError] = useState("");
   const save = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -38,7 +37,7 @@ export function Settings() {
         </div>
         <Badge tone="green">
           <Icon name="shield" size={13} />
-          Demo account
+          Active account
         </Badge>
       </div>
       <div className="settings-grid">
@@ -94,7 +93,7 @@ export function Settings() {
               <input type="email" value={user.email} disabled readOnly />
             </label>
             <p className="field-help">
-              This email identifies your demo account and cannot be changed.
+              This email identifies your account and cannot be changed.
             </p>
             {error && (
               <p className="form-error" role="alert">
@@ -131,7 +130,7 @@ export function Settings() {
             </div>
             <div>
               <dt>Environment</dt>
-              <dd>Demonstration</dd>
+              <dd>Customer portal</dd>
             </div>
             <div>
               <dt>Market coverage</dt>
@@ -149,10 +148,10 @@ export function Settings() {
           <div className="workspace-note">
             <Icon name="shield" size={20} />
             <div>
-              <strong>A space to explore.</strong>
+              <strong>Plan managed by TEMO.</strong>
               <p>
-                All plans are free in this demo. Explore the complete platform
-                without payment details.
+                Your plan is read-only here. Contact sales if your team needs
+                broader market access.
               </p>
             </div>
           </div>
@@ -160,13 +159,12 @@ export function Settings() {
       </div>
       <div className="section-heading">
         <div>
-          <h2>Choose your market perspective</h2>
+          <h2>Compare market access</h2>
           <p>
-            Switch demo plans to see how subscription access works. Changes take
-            effect instantly.
+            Review what each tier includes. Plan changes are handled by TEMO.
           </p>
         </div>
-        <Badge tone="subtle">No billing · No commitment</Badge>
+        <Badge tone="subtle">Contact sales to upgrade</Badge>
       </div>
       <div className="plan-grid">
         {plans.map((p) => (
@@ -194,9 +192,6 @@ export function Settings() {
             </div>
             <h3>{planName(p)}</h3>
             <p>{planDetails[p].description}</p>
-            <div className="plan-price">
-              Free<span>during the demo</span>
-            </div>
             <ul>
               {planDetails[p].features.map((f) => (
                 <li key={f}>
@@ -207,23 +202,10 @@ export function Settings() {
             </ul>
             <button
               className={`button full ${p === "professional" ? "primary" : ""}`}
-              disabled={user.plan === p || !!planBusy}
-              onClick={async () => {
-                setPlanBusy(p);
-                try {
-                  await switchPlan(p);
-                } catch (e) {
-                  toast((e as Error).message);
-                } finally {
-                  setPlanBusy(null);
-                }
-              }}
+              disabled={user.plan === p}
+              onClick={() => requestUpgrade(p, `${planName(p)} plan`)}
             >
-              {planBusy === p
-                ? "Switching…"
-                : user.plan === p
-                  ? "Your current plan"
-                  : `Switch to ${planName(p)}`}
+              {user.plan === p ? "Your current plan" : "Contact sales"}
               {user.plan !== p && <Icon name="right" size={15} />}
             </button>
           </section>
@@ -232,8 +214,8 @@ export function Settings() {
       <div className="settings-foot">
         <Icon name="activity" size={16} />
         <span>
-          Your selection is saved to your account and applied across all open
-          workspace tabs.
+          Access changes made by TEMO apply to your next request and every open
+          workspace tab.
         </span>
       </div>
     </>

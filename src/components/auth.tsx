@@ -2,7 +2,7 @@
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useState, type FormEvent } from "react";
-import { plans, planName, planDetails, type Plan } from "@/lib/config";
+import { plans, planName, type Plan } from "@/lib/config";
 import { Badge, Icon, Logo } from "./ui";
 export function AuthPage({
   mode,
@@ -11,11 +11,10 @@ export function AuthPage({
 }) {
   const router = useRouter(),
     params = useSearchParams();
-  const [plan, setPlan] = useState<Plan>("professional");
+  const showSeedAccounts = process.env.NODE_ENV !== "production";
   const [error, setError] = useState(""),
     [busy, setBusy] = useState(false),
     [showPassword, setShowPassword] = useState(false),
-    [resetUrl, setResetUrl] = useState<string | null>(null),
     [complete, setComplete] = useState(false);
   const [email, setEmail] = useState(""),
     [password, setPassword] = useState("");
@@ -27,7 +26,6 @@ export function AuthPage({
       ...Object.fromEntries(form),
       email,
       password,
-      plan,
       remember: form.get("remember") === "on",
       token: params.get("token"),
     };
@@ -46,7 +44,6 @@ export function AuthPage({
       if (!r.ok) throw new Error(data.error);
       if (mode === "forgot") {
         setComplete(true);
-        setResetUrl(data.resetUrl);
       } else if (mode === "reset") {
         setComplete(true);
       } else {
@@ -194,9 +191,9 @@ export function AuthPage({
             {mode === "login"
               ? "Sign in to your energy intelligence workspace."
               : mode === "register"
-                ? "Create your demo account. Every plan is free to explore."
+                ? "Create your account with Basic access to start."
                 : mode === "forgot"
-                  ? "Enter your account email to start demo password recovery."
+                  ? "Enter your account email to request recovery instructions."
                   : "Choose a strong password for your TEMO account."}
           </p>
           {complete ? (
@@ -212,14 +209,8 @@ export function AuthPage({
               <p>
                 {mode === "reset"
                   ? "You can now sign in with your new password."
-                  : "In this demo, recovery links appear here instead of being sent by email. If the account exists, its link is below."}
+                  : "If an account exists for that email, recovery instructions will be sent."}
               </p>
-              {resetUrl && (
-                <Link className="button primary full" href={resetUrl}>
-                  Continue to password reset
-                  <Icon name="right" />
-                </Link>
-              )}
               <Link href="/login" className="button ghost full">
                 Back to sign in
               </Link>
@@ -342,37 +333,13 @@ export function AuthPage({
                 </div>
               )}
               {mode === "register" && (
-                <fieldset className="auth-plan-fieldset">
-                  <legend>Choose your access plan</legend>
-                  <div className="auth-plans">
-                    {plans.map((p) => (
-                      <label
-                        key={p}
-                        className={`auth-plan ${plan === p ? "selected" : ""}`}
-                      >
-                        <input
-                          type="radio"
-                          name="tier"
-                          value={p}
-                          checked={plan === p}
-                          onChange={() => setPlan(p)}
-                        />
-                        <strong>{planName(p)}</strong>
-                        <small>{planDetails[p].description}</small>
-                        <span>
-                          {plan === p ? (
-                            <>
-                              <Icon name="check" size={13} />
-                              Selected
-                            </>
-                          ) : (
-                            "Free demo"
-                          )}
-                        </span>
-                      </label>
-                    ))}
+                <div className="workspace-note">
+                  <Icon name="shield" size={18} />
+                  <div>
+                    <strong>Basic access included</strong>
+                    <p>Your new account begins on the Basic plan.</p>
                   </div>
-                </fieldset>
+                </div>
               )}
               {error && (
                 <div className="form-error" role="alert">
@@ -397,12 +364,12 @@ export function AuthPage({
               </button>
             </form>
           )}
-          {mode === "login" && (
+          {mode === "login" && showSeedAccounts && (
             <div className="demo-accounts">
               <div className="divider-label">
                 <span>Just looking around?</span>
               </div>
-              <p>Choose a demo account to explore each access level.</p>
+              <p>Choose a seeded test account for an access level.</p>
               <div className="demo-buttons">
                 {plans.map((p) => (
                   <button
@@ -417,7 +384,7 @@ export function AuthPage({
                 ))}
               </div>
               <small>
-                All demo accounts use <code>Demo123!</code>
+                All seeded accounts use <code>Demo123!</code>
               </small>
             </div>
           )}
@@ -429,7 +396,7 @@ export function AuthPage({
           )}
           <div className="auth-disclaimer">
             <Icon name="shield" size={14} />
-            <span>Demo environment. Simulated data. No payment required.</span>
+            <span>Secure account access. Market data remains simulated.</span>
           </div>
         </div>
       </section>

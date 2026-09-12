@@ -8,12 +8,7 @@ import {
   type ReactNode,
 } from "react";
 import { useRouter } from "next/navigation";
-import {
-  type DashboardConfig,
-  type Plan,
-  type PublicUser,
-  planName,
-} from "@/lib/config";
+import { type Plan, type PublicUser, planName } from "@/lib/config";
 import { type LiveSnapshot } from "@/lib/market";
 import { Icon, Modal } from "./ui";
 type FeedEntry = { time: string; text: string; id: number };
@@ -25,7 +20,6 @@ type PortalContext = {
   updateUser: (u: PublicUser) => void;
   toast: (text: string) => void;
   requestUpgrade: (plan: Plan, title?: string) => void;
-  switchPlan: (plan: Plan) => Promise<void>;
 };
 const Context = createContext<PortalContext | null>(null);
 export function usePortal() {
@@ -49,8 +43,6 @@ export function PortalProvider({
   const [upgrade, setUpgrade] = useState<{ plan: Plan; title: string } | null>(
     null,
   );
-  const [switching, setSwitching] = useState(false);
-  const [upgradeError, setUpgradeError] = useState("");
   useEffect(() => setUser(initialUser), [initialUser]);
   useEffect(() => {
     const source = new EventSource("/api/stream");
@@ -135,18 +127,6 @@ export function PortalProvider({
     },
     [router],
   );
-  const switchPlan = async (plan: Plan) => {
-    const response = await fetch("/api/account", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ plan }),
-    });
-    const result = await response.json();
-    if (!response.ok) throw new Error(result.error);
-    updateUser(result.user);
-    setMessage(`Your demo plan is now ${planName(plan)}.`);
-    setUpgrade(null);
-  };
   return (
     <Context.Provider
       value={{
@@ -157,17 +137,15 @@ export function PortalProvider({
         updateUser,
         toast: setMessage,
         requestUpgrade: (plan, title = "This dashboard") => {
-          setUpgradeError("");
           setUpgrade({ plan, title });
         },
-        switchPlan,
       }}
     >
       {children}
       <Modal
         open={!!upgrade}
         onClose={() => setUpgrade(null)}
-        title="Explore more of the market"
+        title="Access required"
       >
         <div className="upgrade-content">
           <span className="large-icon">
@@ -178,36 +156,20 @@ export function PortalProvider({
             {planName(upgrade?.plan || "professional")}
           </h3>
           <p>
-            Unlock deeper analytics and a wider market perspective. You can
-            switch plans freely in this demo.
+            This dashboard requires {planName(upgrade?.plan || "professional")}{" "}
+            access. Contact sales to discuss the right plan for your workspace.
           </p>
           <div className="upgrade-detail">
             <Icon name="check" />
-            <span>Instant access. No payment details required.</span>
+            <span>Your current access stays unchanged.</span>
           </div>
-          {upgradeError && (
-            <p className="form-error" role="alert">
-              {upgradeError}
-            </p>
-          )}
           <button
             className="button primary full"
-            disabled={switching}
-            onClick={async () => {
-              if (!upgrade) return;
-              setSwitching(true);
-              try {
-                await switchPlan(upgrade.plan);
-              } catch (e) {
-                setUpgradeError((e as Error).message);
-              } finally {
-                setSwitching(false);
-              }
-            }}
+            onClick={() =>
+              setMessage("Contact sales to request an access upgrade.")
+            }
           >
-            {switching
-              ? "Switching plan…"
-              : `Switch to ${planName(upgrade?.plan || "professional")}`}
+            Contact sales
             <Icon name="right" />
           </button>
           <button

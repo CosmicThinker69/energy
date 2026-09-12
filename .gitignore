@@ -7,3 +7,5 @@ artifacts/
 *.tsbuildinfo
 .env*
 !.env.example
+
+*.zip

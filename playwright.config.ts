@@ -13,4 +13,10 @@ export default defineConfig({
     trace: "retain-on-failure",
   },
   reporter: "list",
+  webServer: {
+    command: "npm run dev",
+    url: "http://localhost:3000",
+    reuseExistingServer: true,
+    timeout: 120000,
+  },
 });

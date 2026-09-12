@@ -3,7 +3,7 @@ import { Badge, Icon, Panel } from "@/components/ui";
 const faqs = [
   [
     "How do I explore a different subscription tier?",
-    "Open Settings and choose “Switch to” on any plan. The account badge and dashboard permissions update immediately. All plans are free in this demo.",
+    "Open Settings to compare plans, then contact sales to request a change. Plan updates made by TEMO apply to the next authenticated request.",
   ],
   [
     "Is this real electricity market data?",
@@ -19,7 +19,7 @@ const faqs = [
   ],
   [
     "Why can I see a dashboard that is locked?",
-    "The catalogue keeps all available analytics visible so you can understand what each plan includes. Select a locked dashboard to view the required tier and switch your demo plan.",
+    "The catalogue keeps all analytics visible so you can understand what each plan includes. Select a locked dashboard to view the required tier and contact sales.",
   ],
   [
     "What time zone do the charts use?",
@@ -30,12 +30,12 @@ const faqs = [
     "The portal has a reusable dashboard viewer with native, iframe, Streamlit, and generated-HTML modes. Native charts are enabled in this demo. Real external sources can be connected through an approved viewer adapter during a future integration phase.",
   ],
   [
-    "How are demo accounts stored?",
-    "Demo accounts, hashed passwords, and session records persist in a local server-side repository. Remember me keeps the session cookie for 30 days. Without it, the cookie is scoped to the browser session and the server session expires after 24 hours.",
+    "How are accounts stored?",
+    "Accounts, hashed passwords, and hashed session records persist in PostgreSQL. Remember me keeps the session cookie for 30 days. Without it, the cookie is scoped to the browser session and the server session expires after 24 hours.",
   ],
   [
     "How do I reset a password?",
-    "Use Forgot password on the sign-in screen. In this demonstration, the recovery link is shown on the page instead of sent by email. It expires after 15 minutes and can only be used once.",
+    "Use Forgot password on the sign-in screen. Recovery links expire after 15 minutes, can only be used once, and invalidate existing sessions after a successful reset.",
   ],
 ];
 export default function Help() {

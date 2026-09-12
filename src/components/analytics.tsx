@@ -2,7 +2,12 @@
 import Link from "next/link";
 import { useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { canAccess, planName, type DashboardConfig } from "@/lib/config";
+import {
+  canAccess,
+  planName,
+  type DashboardConfig,
+  type Plan,
+} from "@/lib/config";
 import {
   countries,
   formatNumber,
@@ -26,13 +31,7 @@ const green = "var(--mint)",
   cyan = "var(--cyan)",
   violet = "var(--violet)",
   amber = "var(--amber)";
-export function AccessGate({
-  plan,
-  title,
-}: {
-  plan: "professional" | "premium";
-  title: string;
-}) {
+export function AccessGate({ plan, title }: { plan: Plan; title: string }) {
   const { requestUpgrade } = usePortal();
   return (
     <div className="access-gate">
@@ -40,16 +39,16 @@ export function AccessGate({
         <Icon name="lock" size={27} />
       </span>
       <Badge tone="cyan">{planName(plan)} access</Badge>
-      <h2>A wider perspective is one switch away.</h2>
+      <h2>Access required</h2>
       <p>
-        {title} is included in the {planName(plan)} plan. Explore it with a free
-        demo plan change, available instantly.
+        {title} requires {planName(plan)} access. Contact sales to discuss an
+        upgrade for your account.
       </p>
       <button
         className="button primary"
         onClick={() => requestUpgrade(plan, title)}
       >
-        Explore {planName(plan)}
+        Contact sales
         <Icon name="right" size={16} />
       </button>
       <Link href="/dashboards" className="text-button">

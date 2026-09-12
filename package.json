@@ -7,8 +7,10 @@
     "build": "next build",
     "start": "next start --hostname 0.0.0.0",
     "typecheck": "tsc --noEmit",
-    "test": "tsx --test tests/*.test.ts",
+    "test": "tsx --conditions=react-server --test tests/*.test.ts",
     "test:e2e": "playwright test",
+    "db:migrate": "tsx scripts/migrate.ts",
+    "db:seed": "tsx scripts/seed.ts",
     "audit:ui": "node scripts/visual-audit.mjs",
     "format": "prettier --write src tests scripts *.ts *.json *.md",
     "format:check": "prettier --check src tests scripts *.ts *.json *.md"
@@ -17,14 +19,17 @@
     "@fontsource-variable/inter": "^5.2.8",
     "lucide-react": "^0.577.0",
     "next": "^16.2.1",
+    "pg": "^8.23.0",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
-    "recharts": "^3.8.0"
+    "recharts": "^3.8.0",
+    "server-only": "^0.0.1"
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.13.0",
     "@playwright/test": "^1.58.2",
     "@types/node": "^22.19.15",
+    "@types/pg": "^8.23.1",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
     "prettier": "^3.9.6",

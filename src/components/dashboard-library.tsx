@@ -228,11 +228,11 @@ export function DashboardLibrary() {
       <div className="catalogue-foot">
         <Icon name="shield" size={15} />
         <span>
-          All dashboards use realistic simulated data. Your demo plan can be
-          changed at any time.
+          All dashboards use realistic simulated data. Access is determined by
+          your current account plan.
         </span>
         <Link href="/settings">
-          Manage plan
+          Compare plans
           <Icon name="right" size={13} />
         </Link>
       </div>

@@ -15,6 +15,7 @@ export async function GET(request: Request) {
     start(controller) {
       let closed = false;
       let initial = true;
+      let sending = false;
       const close = () => {
         if (closed) return;
         closed = true;
@@ -23,13 +24,14 @@ export async function GET(request: Request) {
           controller.close();
         } catch {}
       };
-      const send = () => {
-        if (closed) return;
-        if (!accountRepository.getSession(token)) {
-          close();
-          return;
-        }
+      const send = async () => {
+        if (closed || sending) return;
+        sending = true;
         try {
+          if (!(await accountRepository.getSession(token))) {
+            close();
+            return;
+          }
           const snapshot = liveSnapshot();
           const payload = initial
             ? {
@@ -45,10 +47,12 @@ export async function GET(request: Request) {
           initial = false;
         } catch {
           close();
+        } finally {
+          sending = false;
         }
       };
-      interval = setInterval(send, 5000);
-      send();
+      interval = setInterval(() => void send(), 5000);
+      void send();
       if (request.signal.aborted) close();
       request.signal.addEventListener("abort", close, { once: true });
     },

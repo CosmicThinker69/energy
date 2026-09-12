@@ -1,10 +1,22 @@
 import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
 import { accountRepository } from "./repository";
 import { canAccess, type DashboardId } from "../config";
 export const SESSION_COOKIE = "temo-session";
 export async function currentUser() {
   const token = (await cookies()).get(SESSION_COOKIE)?.value;
   return token ? accountRepository.getSession(token) : null;
+}
+export async function requireUser() {
+  const user = await currentUser();
+  if (!user) redirect("/login");
+  return user;
+}
+export async function requireAccess(
+  resource: DashboardId | "explorer" | "reports" | "overview",
+) {
+  const user = await requireUser();
+  return canAccess(user.plan, resource) ? user : null;
 }
 export async function authorize(
   resource?: DashboardId | "explorer" | "reports" | "overview",

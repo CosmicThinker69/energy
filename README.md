@@ -1,67 +1,86 @@
 # TEMO Energy Intelligence
 
-A full-stack demonstration of a customer portal for European electricity-market analytics. Built with Next.js App Router, TypeScript, Node.js, React, Recharts, and locally bundled Inter Variable.
+A full-stack customer portal for European electricity-market analytics, built with Next.js 16 App Router, React 19, TypeScript, PostgreSQL, and Recharts.
 
-## Run locally
+## Configuration
 
-Requires Node.js 22 or newer.
+Requires Node.js 22 or newer and PostgreSQL. Copy `.env.example` to `.env` and set:
+
+```dotenv
+DATABASE_URL=postgresql://USER:PASSWORD@HOST:5432/DATABASE
+```
+
+The application reads `DATABASE_URL` only on the server. Keep real credentials in local `.env` files or deployment secrets; never commit them.
+
+## Database setup
+
+Authentication data lives in a dedicated `portal` PostgreSQL schema and does not modify tables in `public`:
 
 ```sh
 npm install
-npm run dev
+npm run db:migrate
+npm run db:seed
 ```
 
-Open [http://localhost:3000](http://localhost:3000). To serve an optimized build, run `npm run build` and then `npm start`.
+Migrations are tracked in `portal.schema_migrations` and are safe to run repeatedly. Seeding is an explicit development/testing step and is never performed by application startup.
 
-## Demo accounts
+The seed command creates:
 
-| Email                 | Password | Initial plan |
+| Email                 | Password | Plan         |
 | --------------------- | -------- | ------------ |
 | basic@demo.com        | Demo123! | Basic        |
 | professional@demo.com | Demo123! | Professional |
 | premium@demo.com      | Demo123! | Premium      |
 
-The buttons on the sign-in page fill these credentials. New accounts may choose any plan. Settings lets you switch plans instantly, without a payment flow. A changed plan remains attached to that account across sign-ins.
+Public registration always assigns Basic. Plan and account-status changes are administrative database operations for now; customers cannot change their own plan through registration, Settings, or the account API.
 
-## What is implemented
+## Run locally
 
-- Registration, login, remember me, password visibility, validation, logout, and one-use password recovery.
-- Server-side session cookies and hashed passwords. Profiles, tiers, sessions, and reset tokens persist in `.data/accounts.json`.
-- An authenticated workspace with search, notifications, account menu, and responsive navigation.
-- Market overview with eight KPIs, multi-country price charts, generation mix, market comparison, scheduled-flow network, events, and a live feed.
-- Ten discoverable dashboards with centrally configured access tiers and upgrade dialogs.
-- Market/date/resolution/comparison controls, interactive charts, interval tables, CSV downloads, fullscreen, and loading/error states.
-- Five-second authenticated server-sent events. Live overview numbers and supported dashboards update without reloading.
-- Data Explorer with multi-market selection, hundreds of observations, sorting, text filtering, pagination, metric columns, and filtered CSV export.
-- Account editing, plan comparison, research reports with downloads, and a help guide.
-- A reusable `DashboardViewer` boundary for later native, iframe, Streamlit, and generated-HTML viewers. External viewers are intentionally disabled in this demo.
+```sh
+npm run db:migrate
+npm run dev
+```
+
+Open [http://localhost:3000](http://localhost:3000).
+
+For production, configure `DATABASE_URL` in the deployment environment, run migrations as a release step, then build and start the application:
+
+```sh
+npm run db:migrate
+npm run build
+npm start
+```
+
+Do not run `db:seed` as part of normal production startup.
+
+## Authentication and authorization
+
+- Users, sessions, and password-reset tokens persist in `portal.users`, `portal.sessions`, and `portal.password_reset_tokens`.
+- Passwords use salted scrypt hashes. Browser cookies contain only an opaque random token; PostgreSQL stores its SHA-256 hash.
+- Normal server sessions expire after 24 hours. Remember Me sessions and persistent cookies expire after 30 days.
+- Every authenticated request joins the session to the current user row, so plan changes and disabled status take effect immediately.
+- Reset tokens expire after 15 minutes, are stored hashed, are one-use, and revoke all user sessions after a successful password change.
+- Password-reset delivery is isolated behind `src/lib/server/mail.ts`. No provider is configured yet, so development reports that delivery is unavailable without exposing the token in an API response or log.
+- `canAccess()` in `src/lib/config.ts` remains the single permission source. Server pages gate dashboard viewers, Explorer, and Reports before rendering; their APIs independently return 401 for missing sessions and 403 for insufficient plans.
 
 ## Architecture
 
-| Boundary                        | Location                              | Future replacement                               |
-| ------------------------------- | ------------------------------------- | ------------------------------------------------ |
-| Catalogue, plans, access policy | `src/lib/config.ts`                   | Product/subscription configuration               |
-| Account repository              | `src/lib/server/repository.ts`        | PostgreSQL account/session adapter               |
-| Authentication/authorization    | `src/lib/server/auth.ts`              | Identity provider or production session service  |
-| Deterministic market model      | `src/lib/market.ts`                   | Python/PostgreSQL-backed market repository       |
-| Market API                      | `src/app/api/market/route.ts`         | Data query facade with the same response shape   |
-| Live stream                     | `src/app/api/stream/route.ts`         | Upstream market-event subscription               |
-| Viewer adapter                  | `src/components/dashboard-viewer.tsx` | Approved external dashboard embeds               |
-| Client data access              | `src/components/use-market.ts`        | API consumption, cancellation, refresh, download |
+| Boundary                     | Location                              | Responsibility                                  |
+| ---------------------------- | ------------------------------------- | ----------------------------------------------- |
+| Catalogue and access policy  | `src/lib/config.ts`                   | Plan hierarchy and resource permissions         |
+| PostgreSQL pool              | `src/lib/server/db.ts`                | Shared server-only connection pool              |
+| Account repository           | `src/lib/server/repository.ts`        | Parameterized account/session/reset persistence |
+| Authentication/authorization | `src/lib/server/auth.ts`              | Cookie sessions and reusable server checks      |
+| Password-reset delivery      | `src/lib/server/mail.ts`              | Provider-independent mail boundary              |
+| Database migrations and seed | `migrations/`, `scripts/`             | Repeatable schema setup and explicit test data  |
+| Deterministic market model   | `src/lib/market.ts`                   | Simulated energy-market data                    |
+| Dashboard viewer             | `src/components/dashboard-viewer.tsx` | Boundary for future approved viewer adapters    |
 
-`canAccess()` is shared between server endpoints and client affordances. All data, stream, account, and report endpoints enforce authentication. Plan-gated APIs return 403 for insufficient access; changing the UI or calling an endpoint directly does not grant access.
-
-The local repository uses synchronous read/mutate/atomic-write operations in one Node.js process. Set `TEMO_DATA_DIR` to choose a persistent data directory. Use a database repository before running multiple server instances or deploying to ephemeral/serverless filesystems.
+The dashboard viewer architecture is Streamlit-ready, but external sources are not connected in this phase. No unrestricted Streamlit URL is exposed.
 
 ## Data conventions
 
-All market data and research are simulated. There are no ENTSO-E, Python, Airflow, payment, or external Streamlit connections.
-
-The model uses deterministic seasonal movement, a midday solar trough, an evening demand ramp, and negative midday intervals in selected renewable-rich markets. Generation technologies reconcile to total output. Imports and exports are positive; net exports equal exports minus imports. Interval timestamps and date filters are UTC; the header update clock uses the browser’s local time.
-
-Daily and calendar-month buckets aggregate hourly observations. Prices and power values are averages; activated energy volumes and negative-hour counts are sums. Long windows require daily or monthly resolution. Live snapshots gently vary around an illustrative current market state; historical CSV exports retain the deterministic dataset.
-
-Password recovery displays its link in the UI instead of sending email. This is an explicit demonstration convenience, not a production recovery channel. Links expire after 15 minutes. Remember me persists the cookie for 30 days; otherwise the cookie is scoped to the browser session and the server session lasts at most 24 hours.
+Market data and research remain simulated. There are no ENTSO-E, Python, Airflow, payment, or external Streamlit connections yet. Historical values are deterministic, interval timestamps and date filters use UTC, and longer windows require daily or monthly resolution.
 
 ## Validation
 
@@ -70,11 +89,9 @@ npm run typecheck
 npm test
 npm run build
 npx playwright install chromium
-# With the app running on port 3000:
 npm run test:e2e
-node scripts/visual-audit.mjs
 ```
 
-Browser tests cover authentication and recovery, tier restrictions and upgrades, all ten dashboards, filters, CSV downloads, Data Explorer, mobile navigation, search, and reports. The visual audit checks accessibility and viewport overflow and writes screenshots to `artifacts/`.
+The database integration tests cover registration, duplicates, password checks, hashed sessions and resets, Remember Me, logout, reset revocation, status changes, and live plan changes. Browser tests cover direct URL and API authorization in addition to the existing portal workflows.
 
 Design context is documented in `PRODUCT.md` and `DESIGN.md`.

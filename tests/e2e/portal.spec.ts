@@ -1,4 +1,22 @@
 import { test, expect, type Page } from "@playwright/test";
+import { loadEnvConfig } from "@next/env";
+import { Pool } from "pg";
+
+loadEnvConfig(process.cwd());
+let registeredEmail = "";
+
+test.afterAll(async () => {
+  if (!registeredEmail) return;
+  const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+  try {
+    await pool.query("DELETE FROM portal.users WHERE email = $1", [
+      registeredEmail,
+    ]);
+  } finally {
+    await pool.end();
+  }
+});
+
 async function login(page: Page, plan = "basic") {
   await page.goto("/login");
   await page
@@ -21,7 +39,7 @@ test("unauthenticated routes and APIs require a session", async ({
   );
   expect((await request.get("/api/stream")).status()).toBe(401);
 });
-test("basic account sees live data, locked catalogue, and immediate upgrades", async ({
+test("basic account sees live data and remains locked out of higher tiers", async ({
   page,
 }) => {
   const errors: string[] = [];
@@ -48,26 +66,34 @@ test("basic account sees live data, locked catalogue, and immediate upgrades", a
     .getByRole("button", { name: "Requires Professional" })
     .first()
     .click();
-  await page
-    .getByRole("button", { name: "Switch to Professional", exact: true })
-    .click();
-  await expect(page.locator(".locked-action")).toHaveCount(3);
+  await expect(
+    page.getByRole("button", { name: "Contact sales", exact: true }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Keep exploring" }).click();
+  await expect(page.locator(".locked-action")).toHaveCount(7);
   expect(
     (await page.request.get("/api/market?dashboard=balancing")).status(),
-  ).toBe(200);
+  ).toBe(403);
+  await page.goto("/dashboards/balancing");
+  await expect(
+    page.getByRole("heading", { name: "Access required" }),
+  ).toBeVisible();
+  await expect(page.locator(".analytics-kpis")).toHaveCount(0);
+  await page.goto("/explorer");
+  await expect(
+    page.getByRole("heading", { name: "Access required" }),
+  ).toBeVisible();
+  await page.goto("/reports");
+  await expect(
+    page.getByRole("heading", { name: "Access required" }),
+  ).toBeVisible();
   await page.goto("/settings");
   await expect(
     page.getByRole("heading", { name: "Account & settings", exact: true }),
   ).toBeVisible();
-  await page
-    .getByRole("button", { name: "Switch to Basic", exact: true })
-    .click();
-  await page.goto("/dashboards/balancing");
   await expect(
-    page.getByRole("heading", {
-      name: "A wider perspective is one switch away.",
-    }),
-  ).toBeVisible();
+    page.getByRole("button", { name: "Your current plan" }),
+  ).toBeDisabled();
   expect(errors).toEqual([]);
 });
 test("all analytics pages load and filters, tables, and CSV work", async ({
@@ -150,11 +176,19 @@ test("explorer filters, sorting, comparisons, pagination, and exports work", asy
   expect((await download).suggestedFilename()).toBe(
     "temo-explorer-filtered.csv",
   );
+  expect((await page.request.get("/api/reports/weekly-outlook")).status()).toBe(
+    403,
+  );
+  await page.goto("/reports");
+  await expect(
+    page.getByRole("heading", { name: "Access required" }),
+  ).toBeVisible();
 });
-test("registration, profile persistence, logout, recovery, and new password", async ({
+test("registration starts on Basic and profile changes persist", async ({
   page,
 }) => {
   const email = `analyst-${Date.now()}@example.com`;
+  registeredEmail = email;
   await page.goto("/register");
   await page.getByLabel("First name", { exact: true }).fill("Jordan");
   await page.getByLabel("Last name", { exact: true }).fill("Reed");
@@ -162,11 +196,12 @@ test("registration, profile persistence, logout, recovery, and new password", as
   await page.getByLabel("Work email").fill(email);
   await page.getByLabel("Password", { exact: true }).fill("Market123!");
   await page.getByLabel("Confirm password").fill("Market123!");
-  await page.getByRole("radio", { name: /Premium/ }).check();
+  await expect(page.getByText("Basic access included")).toBeVisible();
   await page.getByRole("button", { name: "Create your account" }).click();
   await expect(page).toHaveURL("/");
   await expect(page.getByRole("heading", { name: /Jordan/ })).toBeVisible();
   await page.goto("/settings");
+  await expect(page.getByText("Basic", { exact: true }).first()).toBeVisible();
   await page
     .getByLabel("Company", { exact: true })
     .fill("Arc Energy Analytics");
@@ -186,20 +221,12 @@ test("registration, profile persistence, logout, recovery, and new password", as
   ).toBeVisible();
   await page.getByLabel("Work email").fill(email);
   await page.getByRole("button", { name: "Get recovery link" }).click();
-  await page.getByRole("link", { name: "Continue to password reset" }).click();
-  await expect(page).toHaveURL(/reset-password\?token=/);
   await expect(
-    page.getByRole("heading", { name: "Set a new password" }),
-  ).toBeVisible();
-  await page.getByLabel("Password", { exact: true }).fill("Updated123!");
-  await page.getByLabel("Confirm password").fill("Updated123!");
-  await page.getByRole("button", { name: "Update password" }).click();
-  await expect(
-    page.getByRole("heading", { name: "Password updated" }),
+    page.getByRole("heading", { name: "Recovery request received" }),
   ).toBeVisible();
   await page.getByRole("link", { name: "Back to sign in" }).click();
   await page.getByLabel("Work email").fill(email);
-  await page.getByLabel("Password", { exact: true }).fill("Updated123!");
+  await page.getByLabel("Password", { exact: true }).fill("Market123!");
   await page.getByRole("button", { name: "Sign in to workspace" }).click();
   await expect(page).toHaveURL("/");
 });
