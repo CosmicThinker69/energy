@@ -23,44 +23,13 @@ export function DashboardLibrary() {
     <>
       <div className="page-heading">
         <div className="library-heading">
-          <div className="page-eyebrow">YOUR MARKET TOOLKIT</div>
-          <h1>Every angle of the energy market.</h1>
-          <p>
-            Purpose-built analytics. Connected markets. A more complete
-            perspective.
-          </p>
+          <h1>Market dashboards</h1>
+          <p>Browse live and simulated dashboards available for your plan.</p>
         </div>
         <Badge tone="green">
           <Icon name="sparkles" size={13} />
           {planName(user.plan)} access
         </Badge>
-      </div>
-      <div className="library-intro">
-        <div>
-          <Icon name="chart" size={24} />
-          <span>
-            <strong>10 dashboards</strong>
-            <small>One connected workspace</small>
-          </span>
-        </div>
-        <div>
-          <Icon name="globe" size={24} />
-          <span>
-            <strong>8 European markets</strong>
-            <small>From local detail to regional context</small>
-          </span>
-        </div>
-        <div>
-          <Icon name="activity" size={24} />
-          <span>
-            <strong>Continuously updating</strong>
-            <small>Simulated live market intelligence</small>
-          </span>
-        </div>
-        <Link href="/settings" className="text-button">
-          Compare access plans
-          <Icon name="right" size={15} />
-        </Link>
       </div>
       <div className="library-toolbar">
         <div
@@ -72,6 +41,7 @@ export function DashboardLibrary() {
             "All dashboards",
             "Prices",
             "Generation",
+            "Market Data",
             "Regional",
             "Balancing",
             "Research",
@@ -84,7 +54,7 @@ export function DashboardLibrary() {
               onClick={() => setCategory(c)}
             >
               {c}
-              {c === "All dashboards" && <span>10</span>}
+              {c === "All dashboards" && <span>{dashboards.length}</span>}
             </button>
           ))}
         </div>
@@ -123,17 +93,24 @@ export function DashboardLibrary() {
                 <span className="dashboard-icon">
                   <Icon name={d.icon} size={22} />
                 </span>
-                <Badge
-                  tone={
-                    d.plan === "premium"
-                      ? "violet"
-                      : d.plan === "professional"
-                        ? "cyan"
-                        : "subtle"
-                  }
-                >
-                  {planName(d.plan)}
-                </Badge>
+                <span className="dashboard-card-badges">
+                  {d.liveData && (
+                    <Badge tone="green" dot>
+                      LIVE DATA
+                    </Badge>
+                  )}
+                  <Badge
+                    tone={
+                      d.plan === "premium"
+                        ? "violet"
+                        : d.plan === "professional"
+                          ? "cyan"
+                          : "subtle"
+                    }
+                  >
+                    {planName(d.plan)}
+                  </Badge>
+                </span>
               </div>
               <div
                 className={`dashboard-preview preview-${d.category.toLowerCase()}`}
@@ -179,13 +156,19 @@ export function DashboardLibrary() {
               <div className="dashboard-card-meta">
                 <span>
                   <span className={`status-dot ${d.live ? "" : "static"}`} />
-                  {d.live ? "Live simulation" : "Historical dataset"}
+                  {d.liveData
+                    ? "ENTSO-E live data"
+                    : d.live
+                      ? "Live simulation"
+                      : "Historical dataset"}
                 </span>
                 <span>
                   <Icon name="clock" size={11} />
-                  {d.live && live
-                    ? `Updated ${new Date(live.timestamp).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", timeZone: "UTC" })}`
-                    : "Updated 00:00 UTC"}
+                  {d.liveData
+                    ? "Hosted source"
+                    : d.live && live
+                      ? `Updated ${new Date(live.timestamp).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", timeZone: "UTC" })}`
+                      : "Updated 00:00 UTC"}
                 </span>
               </div>
               {locked ? (
@@ -228,8 +211,8 @@ export function DashboardLibrary() {
       <div className="catalogue-foot">
         <Icon name="shield" size={15} />
         <span>
-          All dashboards use realistic simulated data. Access is determined by
-          your current account plan.
+          Native dashboards use simulated data; live sources are clearly marked.
+          Access follows your current account plan.
         </span>
         <Link href="/settings">
           Compare plans

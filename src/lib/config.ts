@@ -10,7 +10,8 @@ export type DashboardId =
   | "cross-border"
   | "historical"
   | "country"
-  | "intelligence";
+  | "intelligence"
+  | "entsoe-energy";
 export type ViewerType = "native" | "iframe" | "streamlit" | "external-html";
 export type DashboardConfig = {
   id: DashboardId;
@@ -23,8 +24,23 @@ export type DashboardConfig = {
   live: boolean;
   viewerType: ViewerType;
   source?: string;
+  liveData?: boolean;
 };
 export const dashboards: DashboardConfig[] = [
+  {
+    id: "entsoe-energy",
+    title: "ENTSO-E Energy Dashboard",
+    shortTitle: "ENTSO-E energy",
+    description:
+      "Day-ahead electricity prices and actual generation mix from ENTSO-E.",
+    category: "Market Data",
+    plan: "basic",
+    icon: "zap",
+    live: true,
+    liveData: true,
+    viewerType: "streamlit",
+    source: process.env.STREAMLIT_ENTSOE_URL,
+  },
   {
     id: "day-ahead",
     title: "Day-Ahead Electricity Prices",
@@ -170,6 +186,7 @@ export const planDetails: Record<
     features: [
       "Market overview",
       "Day-ahead prices & energy mix",
+      "Live ENTSO-E dashboard",
       "Bulgaria market overview",
       "Live market updates",
     ],

@@ -8,6 +8,7 @@ Requires Node.js 22 or newer and PostgreSQL. Copy `.env.example` to `.env` and s
 
 ```dotenv
 DATABASE_URL=postgresql://USER:PASSWORD@HOST:5432/DATABASE
+STREAMLIT_ENTSOE_URL=https://your-streamlit-service.example/
 ```
 
 The application reads `DATABASE_URL` only on the server. Keep real credentials in local `.env` files or deployment secrets; never commit them.
@@ -74,13 +75,15 @@ Do not run `db:seed` as part of normal production startup.
 | Password-reset delivery      | `src/lib/server/mail.ts`              | Provider-independent mail boundary              |
 | Database migrations and seed | `migrations/`, `scripts/`             | Repeatable schema setup and explicit test data  |
 | Deterministic market model   | `src/lib/market.ts`                   | Simulated energy-market data                    |
-| Dashboard viewer             | `src/components/dashboard-viewer.tsx` | Boundary for future approved viewer adapters    |
+| Dashboard viewer             | `src/components/dashboard-viewer.tsx` | Native and configured Streamlit viewer boundary |
 
-The dashboard viewer architecture is Streamlit-ready, but external sources are not connected in this phase. No unrestricted Streamlit URL is exposed.
+The ENTSO-E dashboard is embedded from the server-configured `STREAMLIT_ENTSOE_URL` with Streamlit's `embed=true` mode. Portal authentication and plan checks run before the iframe is rendered.
+
+> TODO: The Streamlit Railway domain remains publicly reachable in this phase. A future reverse-proxy integration must make the service private so direct requests cannot bypass portal subscription permissions.
 
 ## Data conventions
 
-Market data and research remain simulated. There are no ENTSO-E, Python, Airflow, payment, or external Streamlit connections yet. Historical values are deterministic, interval timestamps and date filters use UTC, and longer windows require daily or monthly resolution.
+Native market data and research remain simulated. The separate ENTSO-E Streamlit dashboard uses real data from its own PostgreSQL-backed service. There are no Airflow or payment connections yet. Native historical values are deterministic, interval timestamps and date filters use UTC, and longer windows require daily or monthly resolution.
 
 ## Validation
 

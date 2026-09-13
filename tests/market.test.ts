@@ -75,13 +75,13 @@ test("negative numeric prices remain numeric in CSV exports", () => {
   assert.ok(toCsv([{ price: -4.8 }]).includes('"-4.8"'));
 });
 test("permissions increase by tier and remain centralized", () => {
-  assert.equal(dashboards.length, 10);
-  assert.equal(dashboards.filter((d) => canAccess("basic", d.id)).length, 3);
+  assert.equal(dashboards.length, 11);
+  assert.equal(dashboards.filter((d) => canAccess("basic", d.id)).length, 4);
   assert.equal(
     dashboards.filter((d) => canAccess("professional", d.id)).length,
-    7,
+    8,
   );
-  assert.equal(dashboards.filter((d) => canAccess("premium", d.id)).length, 10);
+  assert.equal(dashboards.filter((d) => canAccess("premium", d.id)).length, 11);
   assert.equal(canAccess("basic", "explorer"), false);
   assert.equal(canAccess("professional", "explorer"), true);
   assert.equal(canAccess("professional", "reports"), false);

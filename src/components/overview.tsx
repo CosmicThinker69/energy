@@ -20,6 +20,7 @@ import {
   Sparkline,
 } from "./charts";
 import { usePortal } from "./portal-provider";
+import { dashboards } from "@/lib/config";
 export function Overview() {
   const { user, live, status, feed, toast } = usePortal();
   const [country, setCountry] = useState("BG"),
@@ -498,7 +499,8 @@ export function Overview() {
         <div>
           <strong>There’s more to the market.</strong>
           <p>
-            Explore 10 purpose-built dashboards for your next energy decision.
+            Explore {dashboards.length} purpose-built dashboards for your next
+            energy decision.
           </p>
         </div>
         <Link href="/dashboards" className="button">

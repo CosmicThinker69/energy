@@ -34,6 +34,8 @@ test("unauthenticated routes and APIs require a session", async ({
 }) => {
   await page.goto("/explorer");
   await expect(page).toHaveURL("/login");
+  await page.goto("/dashboards/entsoe-energy");
+  await expect(page).toHaveURL("/login");
   expect((await request.get("/api/market?dashboard=balancing")).status()).toBe(
     401,
   );
@@ -57,7 +59,34 @@ test("basic account sees live data and remains locked out of higher tiers", asyn
     fullPage: true,
   });
   await page.goto("/dashboards");
-  await expect(page.locator(".dashboard-card")).toHaveCount(10);
+  await expect(page.locator(".dashboard-card")).toHaveCount(11);
+  await expect(page.locator(".dashboard-card").first()).toContainText(
+    "ENTSO-E energy",
+  );
+  const sidebar = page.locator(".sidebar");
+  await expect(
+    sidebar.getByRole("link", { name: /Market dashboards/ }),
+  ).toHaveAttribute("aria-current", "page");
+  for (const duplicateLink of [
+    "Prices",
+    "Generation",
+    "Balancing",
+    "Regional markets",
+  ]) {
+    await expect(
+      sidebar.getByRole("link", { name: duplicateLink, exact: true }),
+    ).toHaveCount(0);
+  }
+  await expect(
+    page
+      .locator(".dashboard-card")
+      .filter({ hasText: "ENTSO-E energy" })
+      .getByText("LIVE DATA", { exact: true }),
+  ).toBeVisible();
+  await page.screenshot({
+    path: "test-results/dashboard-library-desktop.png",
+    fullPage: true,
+  });
   await expect(page.locator(".locked-action")).toHaveCount(7);
   expect(
     (await page.request.get("/api/market?dashboard=balancing")).status(),
@@ -75,6 +104,9 @@ test("basic account sees live data and remains locked out of higher tiers", asyn
     (await page.request.get("/api/market?dashboard=balancing")).status(),
   ).toBe(403);
   await page.goto("/dashboards/balancing");
+  await expect(
+    page.locator(".sidebar").getByRole("link", { name: /Market dashboards/ }),
+  ).toHaveAttribute("aria-current", "page");
   await expect(
     page.getByRole("heading", { name: "Access required" }),
   ).toBeVisible();
@@ -95,6 +127,45 @@ test("basic account sees live data and remains locked out of higher tiers", asyn
     page.getByRole("button", { name: "Your current plan" }),
   ).toBeDisabled();
   expect(errors).toEqual([]);
+});
+test("ENTSO-E Streamlit viewer is available to every authenticated plan", async ({
+  page,
+}) => {
+  await login(page, "basic");
+  await page.goto("/dashboards/entsoe-energy");
+  await expect(
+    page.getByRole("heading", { name: "ENTSO-E Energy Dashboard" }),
+  ).toBeVisible();
+  const iframe = page.locator(
+    '#main-content iframe[title="ENTSO-E Energy Dashboard"]',
+  );
+  await expect(iframe).toHaveAttribute("src", /\?embed=true$/);
+  await expect(
+    page
+      .frameLocator('#main-content iframe[title="ENTSO-E Energy Dashboard"]')
+      .getByRole("heading", { name: /ENTSO-E Energy Dashboard/ }),
+  ).toBeVisible({ timeout: 30_000 });
+  await page.screenshot({
+    path: "test-results/entsoe-streamlit.png",
+    fullPage: true,
+  });
+
+  await page.getByRole("button", { name: "Open account menu" }).click();
+  await page.getByRole("button", { name: "Sign out", exact: true }).click();
+  await expect(page).toHaveURL("/login");
+  await page.goto("/dashboards/entsoe-energy");
+  await expect(page).toHaveURL("/login");
+
+  for (const plan of ["professional", "premium"]) {
+    await login(page, plan);
+    await page.goto("/dashboards/entsoe-energy");
+    await expect(
+      page.locator('#main-content iframe[title="ENTSO-E Energy Dashboard"]'),
+    ).toBeVisible();
+    await page.getByRole("button", { name: "Open account menu" }).click();
+    await page.getByRole("button", { name: "Sign out", exact: true }).click();
+    await expect(page).toHaveURL("/login");
+  }
 });
 test("all analytics pages load and filters, tables, and CSV work", async ({
   page,
@@ -259,7 +330,11 @@ test("mobile navigation, search, reports, and key pages fit viewport", async ({
     fullPage: true,
   });
   await page.getByRole("button", { name: "Open navigation" }).click();
-  await page.getByRole("link", { name: "Market dashboards 10" }).click();
+  await page.screenshot({
+    path: "test-results/navigation-mobile.png",
+    fullPage: true,
+  });
+  await page.getByRole("link", { name: "Market dashboards 11" }).click();
   await expect(page).toHaveURL("/dashboards");
   await page.getByRole("button", { name: "Search workspace" }).click();
   await page

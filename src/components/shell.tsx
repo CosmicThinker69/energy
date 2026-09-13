@@ -12,15 +12,16 @@ const navigation = [
     label: "Market dashboards",
     href: "/dashboards",
     icon: "chart",
-    count: "10",
+    count: String(dashboards.length),
   },
-  { label: "Prices", href: "/dashboards/day-ahead", icon: "activity" },
-  { label: "Generation", href: "/dashboards/energy-mix", icon: "pie" },
-  { label: "Balancing", href: "/dashboards/balancing", icon: "arrows" },
-  { label: "Regional markets", href: "/dashboards/regional", icon: "globe" },
-  { label: "Reports", href: "/reports", icon: "report" },
   { label: "Data Explorer", href: "/explorer", icon: "database" },
+  { label: "Reports", href: "/reports", icon: "report" },
 ];
+function navigationIsActive(pathname: string, href: string) {
+  return href === "/dashboards"
+    ? pathname.startsWith("/dashboards")
+    : pathname === href;
+}
 export function Shell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname(),
     router = useRouter();
@@ -99,49 +100,25 @@ export function Shell({ children }: { children: React.ReactNode }) {
         <Link href="/" className="brand-link" aria-label="TEMO overview">
           <Logo />
         </Link>
-        <div className="workspace-switch">
-          <span className="workspace-icon">
-            <Icon name="zap" size={16} />
-          </span>
-          <div>
-            <strong>Energy Intelligence</strong>
-            <small>European markets</small>
-          </div>
-          <Badge tone="subtle">DEMO</Badge>
-        </div>
         <div className="nav-label">Workspace</div>
         <nav aria-label="Main navigation">
-          {navigation.map((item) => (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={`nav-item ${pathname === item.href ? "active" : ""}`}
-              aria-current={pathname === item.href ? "page" : undefined}
-            >
-              <Icon name={item.icon} />
-              <span>{item.label}</span>
-              {item.count && <span className="nav-count">{item.count}</span>}
-            </Link>
-          ))}
+          {navigation.map((item) => {
+            const active = navigationIsActive(pathname, item.href);
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={`nav-item ${active ? "active" : ""}`}
+                aria-current={active ? "page" : undefined}
+              >
+                <Icon name={item.icon} />
+                <span>{item.label}</span>
+                {item.count && <span className="nav-count">{item.count}</span>}
+              </Link>
+            );
+          })}
         </nav>
         <div className="sidebar-bottom">
-          <div className="plan-summary">
-            <div className="plan-summary-top">
-              <Icon name="sparkles" size={16} />
-              <strong>{planName(user.plan)} plan</strong>
-            </div>
-            <p>
-              {user.plan === "premium"
-                ? "Your full market perspective."
-                : "More insight. A wider perspective."}
-            </p>
-            <Link href="/settings">
-              {user.plan === "premium"
-                ? "Manage your plan"
-                : "Explore access plans"}
-              <Icon name="right" size={14} />
-            </Link>
-          </div>
           <Link
             href="/settings"
             className={`nav-item ${pathname === "/settings" ? "active" : ""}`}
@@ -155,12 +132,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
           >
             <Icon name="help" />
             Help & resources
-            <Icon name="external" size={13} />
           </Link>
-          <div className="sidebar-foot">
-            <span className="status-dot" />
-            All systems operational<span>v1.0</span>
-          </div>
         </div>
       </aside>
       <div className="main-shell">
@@ -187,7 +159,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
               }}
             >
               <Icon name="search" size={15} />
-              <span>Search anything…</span>
+              <span>Search dashboards…</span>
               <kbd>⌘ K</kbd>
             </button>
             <span className="topbar-divider" />
@@ -258,14 +230,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
           {children}
         </main>
         <footer className="app-footer">
-          <span>
-            <Logo compact />
-            Renewable Market Intelligence
-          </span>
-          <span>
-            Demonstration environment<span className="footer-dot">·</span>All
-            market data is simulated
-          </span>
+          <span>Native dashboard data is simulated</span>
           <span>Times in UTC</span>
         </footer>
       </div>
@@ -280,7 +245,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
             <Icon name="search" />
             <input
               autoFocus
-              placeholder="Search dashboards, markets, or analytics…"
+              placeholder="Search dashboards…"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               aria-label="Search dashboards"

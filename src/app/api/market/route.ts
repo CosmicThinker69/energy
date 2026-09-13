@@ -11,6 +11,11 @@ export async function GET(request: Request) {
     id === "explorer" ? "explorer" : config!.id,
   );
   if (error) return error;
+  if (config && config.viewerType !== "native")
+    return Response.json(
+      { error: "This dashboard uses its configured external data source." },
+      { status: 400 },
+    );
   const days = Number(p.get("days") || 1),
     resolution = p.get("resolution") || "hourly",
     country = p.get("country") || "BG",
