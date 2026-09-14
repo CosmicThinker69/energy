@@ -4,13 +4,18 @@ import { Pool } from "pg";
 
 loadEnvConfig(process.cwd());
 let registeredEmail = "";
+const managedDashboardSlug = `managed-streamlit-${Date.now()}`;
 
 test.afterAll(async () => {
-  if (!registeredEmail) return;
   const pool = new Pool({ connectionString: process.env.DATABASE_URL });
   try {
-    await pool.query("DELETE FROM portal.users WHERE email = $1", [
-      registeredEmail,
+    if (registeredEmail) {
+      await pool.query("DELETE FROM portal.users WHERE email = $1", [
+        registeredEmail,
+      ]);
+    }
+    await pool.query("DELETE FROM portal.dashboards WHERE slug = $1", [
+      managedDashboardSlug,
     ]);
   } finally {
     await pool.end();
@@ -27,6 +32,13 @@ async function login(page: Page, plan = "basic") {
   await expect(
     page.getByRole("heading", { name: /Good .*Alex/ }),
   ).toBeVisible();
+}
+async function loginAdmin(page: Page) {
+  await page.goto("/login");
+  await page.getByLabel("Work email").fill("admin@demo.com");
+  await page.getByLabel("Password", { exact: true }).fill("Demo123!");
+  await page.getByRole("button", { name: "Sign in to workspace" }).click();
+  await expect(page).toHaveURL("/");
 }
 test("unauthenticated routes and APIs require a session", async ({
   page,
@@ -48,10 +60,10 @@ test("basic account sees live data and remains locked out of higher tiers", asyn
   page.on("pageerror", (e) => errors.push(e.message));
   await login(page);
   await expect(page.getByText("Markets live", { exact: true })).toBeVisible();
-  const first = await page.locator(".kpi-value").first().innerText();
+  const firstUpdate = await page.locator(".header-live small").innerText();
   await expect(async () => {
-    expect(await page.locator(".kpi-value").first().innerText()).not.toBe(
-      first,
+    expect(await page.locator(".header-live small").innerText()).not.toBe(
+      firstUpdate,
     );
   }).toPass({ timeout: 12000 });
   await page.screenshot({
@@ -61,9 +73,22 @@ test("basic account sees live data and remains locked out of higher tiers", asyn
   await page.goto("/dashboards");
   await expect(page.locator(".dashboard-card")).toHaveCount(11);
   await expect(page.locator(".dashboard-card").first()).toContainText(
-    "ENTSO-E energy",
+    "ENTSO-E Energy",
   );
   const sidebar = page.locator(".sidebar");
+  await expect(
+    sidebar.getByText("Administration", { exact: true }),
+  ).toHaveCount(0);
+  await expect(
+    sidebar.getByRole("link", { name: "Dashboard registry" }),
+  ).toHaveCount(0);
+  await page.getByRole("button", { name: "Open account menu" }).click();
+  await expect(
+    page.locator(".profile-menu").getByRole("link", {
+      name: "Dashboard registry",
+    }),
+  ).toHaveCount(0);
+  await page.getByRole("button", { name: "Close account menu" }).click();
   await expect(
     sidebar.getByRole("link", { name: /Market dashboards/ }),
   ).toHaveAttribute("aria-current", "page");
@@ -80,7 +105,7 @@ test("basic account sees live data and remains locked out of higher tiers", asyn
   await expect(
     page
       .locator(".dashboard-card")
-      .filter({ hasText: "ENTSO-E energy" })
+      .filter({ hasText: "ENTSO-E Energy" })
       .getByText("LIVE DATA", { exact: true }),
   ).toBeVisible();
   await page.screenshot({
@@ -126,7 +151,121 @@ test("basic account sees live data and remains locked out of higher tiers", asyn
   await expect(
     page.getByRole("button", { name: "Your current plan" }),
   ).toBeDisabled();
+  await page.goto("/admin/dashboards");
+  await expect(
+    page.getByRole("heading", { name: "Administrator access required" }),
+  ).toBeVisible();
   expect(errors).toEqual([]);
+});
+test("admin can add, edit, disable, reorder, and delete a dynamic Streamlit dashboard", async ({
+  page,
+}) => {
+  test.setTimeout(90_000);
+  const title = "Managed Streamlit Dashboard";
+  await loginAdmin(page);
+  const adminSidebar = page.locator(".sidebar");
+  await expect(
+    adminSidebar.getByText("Administration", { exact: true }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Open account menu" }).click();
+  await expect(
+    page.locator(".profile-menu").getByRole("link", {
+      name: "Dashboard registry",
+    }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Close account menu" }).click();
+  await adminSidebar.getByRole("link", { name: "Dashboard registry" }).click();
+  await expect(page).toHaveURL("/admin/dashboards");
+  await expect(
+    page.getByRole("heading", { name: "Dashboard registry" }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Add dashboard" }).click();
+  await page.getByLabel("Title", { exact: true }).fill(title);
+  await page.getByLabel("Slug", { exact: true }).fill(managedDashboardSlug);
+  await page
+    .getByLabel("Description", { exact: true })
+    .fill("A dashboard registered entirely through TEMO Admin.");
+  await page.getByLabel("Category", { exact: true }).fill("Testing");
+  await page
+    .getByRole("combobox", { name: "Dashboard type" })
+    .selectOption("streamlit");
+  await page
+    .getByLabel("Source URL", { exact: true })
+    .fill("https://example.com/streamlit-app");
+  await page
+    .getByRole("combobox", { name: "Minimum access" })
+    .selectOption("basic");
+  await page.getByLabel("Badge", { exact: true }).fill("BETA");
+  await page.getByRole("button", { name: "Save dashboard" }).click();
+  await expect(page.getByRole("status")).toContainText("Dashboard added");
+  const row = page.locator("tbody tr").filter({ hasText: title });
+  await expect(row).toContainText(managedDashboardSlug);
+  await row.getByRole("button", { name: `Move ${title} up` }).click();
+  await expect(page.getByRole("status")).toContainText(
+    "Dashboard order updated",
+  );
+
+  await page.goto("/dashboards");
+  await expect(
+    page.getByRole("link", { name: "Market dashboards 12" }),
+  ).toBeVisible();
+  await expect(
+    page.locator(".dashboard-card").filter({ hasText: title }),
+  ).toBeVisible();
+  await page.goto(`/dashboards/${managedDashboardSlug}`);
+  const iframe = page.locator(`#main-content iframe[title="${title}"]`);
+  await expect(iframe).toHaveAttribute(
+    "src",
+    /example\.com\/streamlit-app\?embed=true$/,
+  );
+
+  await page.goto("/admin/dashboards");
+  const editableRow = page.locator("tbody tr").filter({ hasText: title });
+  await editableRow.getByRole("button", { name: "Edit" }).click();
+  await page
+    .getByRole("combobox", { name: "Minimum access" })
+    .selectOption("professional");
+  await page.getByRole("button", { name: "Save dashboard" }).click();
+  await expect(page.getByRole("status")).toContainText("Dashboard updated");
+
+  await page.getByRole("button", { name: "Open account menu" }).click();
+  await page.getByRole("button", { name: "Sign out", exact: true }).click();
+  await login(page, "basic");
+  await page.goto(`/dashboards/${managedDashboardSlug}`);
+  await expect(
+    page.getByRole("heading", { name: "Access required" }),
+  ).toBeVisible();
+
+  await page.getByRole("button", { name: "Open account menu" }).click();
+  await page.getByRole("button", { name: "Sign out", exact: true }).click();
+  await loginAdmin(page);
+  await page.goto("/admin/dashboards");
+  const managedRow = page.locator("tbody tr").filter({ hasText: title });
+  await managedRow.getByRole("button", { name: "Disable" }).click();
+  await expect(page.getByRole("status")).toContainText("Dashboard disabled");
+  await page.goto("/dashboards");
+  await expect(
+    page.getByRole("link", { name: "Market dashboards 11" }),
+  ).toBeVisible();
+  await expect(
+    page.locator(".dashboard-card").filter({ hasText: title }),
+  ).toHaveCount(0);
+  await page.goto(`/dashboards/${managedDashboardSlug}`);
+  await expect(
+    page.getByRole("heading", { name: "This page is off the grid." }),
+  ).toBeVisible();
+
+  await page.goto("/admin/dashboards");
+  page.once("dialog", (dialog) => dialog.accept());
+  await page
+    .locator("tbody tr")
+    .filter({ hasText: title })
+    .getByRole("button", { name: "Delete" })
+    .click();
+  await expect(page.getByRole("status")).toContainText("metadata deleted");
+  await expect(page.locator("tbody tr").filter({ hasText: title })).toHaveCount(
+    0,
+  );
 });
 test("ENTSO-E Streamlit viewer is available to every authenticated plan", async ({
   page,
@@ -340,7 +479,7 @@ test("mobile navigation, search, reports, and key pages fit viewport", async ({
   await page
     .getByRole("textbox", { name: "Search dashboards" })
     .fill("negative");
-  await page.getByRole("button", { name: /Negative price analysis/ }).click();
+  await page.getByRole("button", { name: /Negative Price Analysis/i }).click();
   await expect(page).toHaveURL("/dashboards/negative-prices");
   await page.goto("/reports");
   await page

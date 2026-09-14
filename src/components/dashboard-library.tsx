@@ -1,12 +1,17 @@
 "use client";
 import Link from "next/link";
-import { useState } from "react";
-import { canAccess, dashboards, planName } from "@/lib/config";
+import { useMemo, useState } from "react";
+import { canAccessPlan, planName } from "@/lib/config";
+import { dashboardIcon, type DashboardRecord } from "@/lib/dashboard";
 import { generateMarketRows } from "@/lib/market";
 import { usePortal } from "./portal-provider";
 import { Badge, EmptyState, Icon } from "./ui";
 import { Sparkline } from "./charts";
-export function DashboardLibrary() {
+export function DashboardLibrary({
+  dashboards,
+}: {
+  dashboards: DashboardRecord[];
+}) {
   const { user, live, requestUpgrade } = usePortal();
   const [category, setCategory] = useState("All dashboards"),
     [query, setQuery] = useState(""),
@@ -17,7 +22,11 @@ export function DashboardLibrary() {
       (d.title + " " + d.description)
         .toLowerCase()
         .includes(query.toLowerCase()) &&
-      (!available || canAccess(user.plan, d.id)),
+      (!available || canAccessPlan(user.plan, d.minimumPlan)),
+  );
+  const categories = useMemo(
+    () => ["All dashboards", ...new Set(dashboards.map((d) => d.category))],
+    [dashboards],
   );
   return (
     <>
@@ -37,15 +46,7 @@ export function DashboardLibrary() {
           role="tablist"
           aria-label="Dashboard category"
         >
-          {[
-            "All dashboards",
-            "Prices",
-            "Generation",
-            "Market Data",
-            "Regional",
-            "Balancing",
-            "Research",
-          ].map((c) => (
+          {categories.map((c) => (
             <button
               key={c}
               role="tab"
@@ -80,7 +81,7 @@ export function DashboardLibrary() {
       </div>
       <div className="catalogue-grid">
         {filtered.map((d, i) => {
-          const locked = !canAccess(user.plan, d.id);
+          const locked = !canAccessPlan(user.plan, d.minimumPlan);
           const rows = generateMarketRows({
             country: ["BG", "RO", "HU"][i % 3],
           });
@@ -91,29 +92,29 @@ export function DashboardLibrary() {
             >
               <div className="dashboard-card-top">
                 <span className="dashboard-icon">
-                  <Icon name={d.icon} size={22} />
+                  <Icon name={dashboardIcon(d)} size={22} />
                 </span>
                 <span className="dashboard-card-badges">
-                  {d.liveData && (
-                    <Badge tone="green" dot>
-                      LIVE DATA
+                  {d.badge && (
+                    <Badge tone="green" dot={d.badge === "LIVE DATA"}>
+                      {d.badge}
                     </Badge>
                   )}
                   <Badge
                     tone={
-                      d.plan === "premium"
+                      d.minimumPlan === "premium"
                         ? "violet"
-                        : d.plan === "professional"
+                        : d.minimumPlan === "professional"
                           ? "cyan"
                           : "subtle"
                     }
                   >
-                    {planName(d.plan)}
+                    {planName(d.minimumPlan)}
                   </Badge>
                 </span>
               </div>
               <div
-                className={`dashboard-preview preview-${d.category.toLowerCase()}`}
+                className={`dashboard-preview ${d.category === "Generation" ? "preview-generation" : ""}`}
                 aria-hidden="true"
               >
                 {d.category === "Generation" ? (
@@ -137,7 +138,7 @@ export function DashboardLibrary() {
                   <>
                     <Sparkline
                       values={rows.map((r) =>
-                        d.id === "cross-border" ? r.netFlow : r.price,
+                        d.nativeKey === "cross-border" ? r.netFlow : r.price,
                       )}
                       color={locked ? "var(--slate)" : "var(--mint)"}
                     />
@@ -151,22 +152,24 @@ export function DashboardLibrary() {
                 )}
               </div>
               <span className="card-category">{d.category}</span>
-              <h2>{d.shortTitle}</h2>
+              <h2>{d.title}</h2>
               <p>{d.description}</p>
               <div className="dashboard-card-meta">
                 <span>
-                  <span className={`status-dot ${d.live ? "" : "static"}`} />
-                  {d.liveData
-                    ? "ENTSO-E live data"
-                    : d.live
-                      ? "Live simulation"
-                      : "Historical dataset"}
+                  <span
+                    className={`status-dot ${d.viewerType === "native" ? "static" : ""}`}
+                  />
+                  {d.viewerType === "native"
+                    ? "Simulated market data"
+                    : d.viewerType === "streamlit"
+                      ? "Streamlit dashboard"
+                      : "External HTML dashboard"}
                 </span>
                 <span>
                   <Icon name="clock" size={11} />
-                  {d.liveData
+                  {d.viewerType !== "native"
                     ? "Hosted source"
-                    : d.live && live
+                    : live
                       ? `Updated ${new Date(live.timestamp).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", timeZone: "UTC" })}`
                       : "Updated 00:00 UTC"}
                 </span>
@@ -174,14 +177,14 @@ export function DashboardLibrary() {
               {locked ? (
                 <button
                   className="card-open locked-action"
-                  onClick={() => requestUpgrade(d.plan, d.shortTitle)}
+                  onClick={() => requestUpgrade(d.minimumPlan, d.title)}
                 >
                   <Icon name="lock" size={14} />
-                  Requires {planName(d.plan)}
+                  Requires {planName(d.minimumPlan)}
                   <Icon name="right" size={15} />
                 </button>
               ) : (
-                <Link className="card-open" href={`/dashboards/${d.id}`}>
+                <Link className="card-open" href={`/dashboards/${d.slug}`}>
                   Open dashboard
                   <Icon name="right" size={15} />
                 </Link>

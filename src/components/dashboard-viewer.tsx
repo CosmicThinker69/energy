@@ -1,28 +1,34 @@
 "use client";
-import { useEffect, useMemo, useState, type ReactNode } from "react";
-import type { ViewerType } from "@/lib/config";
+import { useEffect, useMemo, useState } from "react";
+import type { DashboardRecord } from "@/lib/dashboard";
 import { Icon } from "./ui";
+import { nativeDashboardComponents } from "./native-dashboard-registry";
 
-function configuredEmbedUrl(source?: string) {
+function configuredEmbedUrl(source: string | null, streamlit: boolean) {
   if (!source) return null;
   try {
     const url = new URL(source);
     if (url.protocol !== "https:" && url.protocol !== "http:") return null;
-    url.searchParams.set("embed", "true");
+    if (streamlit) url.searchParams.set("embed", "true");
     return url.toString();
   } catch {
     return null;
   }
 }
 
-function StreamlitViewer({
+function ExternalDashboard({
   source,
   title,
+  streamlit,
 }: {
-  source?: string;
+  source: string | null;
   title: string;
+  streamlit: boolean;
 }) {
-  const embedUrl = useMemo(() => configuredEmbedUrl(source), [source]);
+  const embedUrl = useMemo(
+    () => configuredEmbedUrl(source, streamlit),
+    [source, streamlit],
+  );
   const [attempt, setAttempt] = useState(0);
   const [state, setState] = useState<"loading" | "loaded" | "error">("loading");
 
@@ -43,8 +49,8 @@ function StreamlitViewer({
         <h3>Dashboard unavailable</h3>
         <p>
           {embedUrl
-            ? "The live ENTSO-E dashboard did not respond. Try loading it again."
-            : "The Streamlit dashboard source is not configured."}
+            ? `${title} did not respond. Try loading it again.`
+            : "The external dashboard source is not configured."}
         </p>
         {embedUrl && (
           <button
@@ -66,7 +72,7 @@ function StreamlitViewer({
     <div className="streamlit-viewer">
       {state === "loading" && (
         <div className="streamlit-loading" role="status" aria-live="polite">
-          <span>Loading live ENTSO-E dashboard</span>
+          <span>Loading {title}</span>
           <div className="streamlit-loading-layout" aria-hidden="true">
             <div className="skeleton streamlit-loading-sidebar" />
             <div>
@@ -84,6 +90,11 @@ function StreamlitViewer({
         loading="eager"
         referrerPolicy="strict-origin-when-cross-origin"
         allow="fullscreen; clipboard-read; clipboard-write"
+        sandbox={
+          streamlit
+            ? "allow-scripts allow-same-origin allow-forms allow-downloads allow-popups allow-modals"
+            : "allow-scripts allow-forms allow-downloads allow-popups"
+        }
         tabIndex={state === "loaded" ? 0 : -1}
         onLoad={() => setState("loaded")}
         onError={() => setState("error")}
@@ -93,34 +104,27 @@ function StreamlitViewer({
 }
 
 /** Integration boundary for native dashboards and approved external viewers. */
-export function DashboardViewer({
-  type,
-  source,
-  title = "Embedded dashboard",
-  children,
-}: {
-  type: ViewerType;
-  source?: string;
-  title?: string;
-  children?: ReactNode;
-}) {
-  if (type === "native") return <div className="native-viewer">{children}</div>;
-  if (type === "streamlit") {
-    return <StreamlitViewer source={source} title={title} />;
+export function DashboardViewer({ dashboard }: { dashboard: DashboardRecord }) {
+  if (dashboard.viewerType === "native") {
+    const NativeDashboard = dashboard.nativeKey
+      ? nativeDashboardComponents[dashboard.nativeKey]
+      : null;
+    if (!NativeDashboard) {
+      return (
+        <div className="viewer-integration-state" role="alert">
+          <Icon name="warning" size={28} />
+          <h3>Native dashboard unavailable</h3>
+          <p>The configured native component could not be resolved.</p>
+        </div>
+      );
+    }
+    return <NativeDashboard dashboard={dashboard} />;
   }
   return (
-    <div className="viewer-integration-state">
-      <Icon name="external" size={28} />
-      <h3>{type === "external-html" ? "Generated HTML" : "Embedded"} viewer</h3>
-      <p>
-        An approved dashboard source can be connected here when this viewer is
-        enabled.
-      </p>
-      <span className="muted small">
-        {source
-          ? "An external source is configured; loading is disabled in this demo."
-          : "No external source is connected."}
-      </span>
-    </div>
+    <ExternalDashboard
+      source={dashboard.sourceUrl}
+      title={dashboard.title}
+      streamlit={dashboard.viewerType === "streamlit"}
+    />
   );
 }

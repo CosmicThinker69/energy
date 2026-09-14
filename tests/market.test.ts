@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { canAccess, dashboards, plans } from "../src/lib/config";
+import { canAccess, canAccessPlan, plans } from "../src/lib/config";
 import {
   countries,
   generateMarketRows,
@@ -75,13 +75,14 @@ test("negative numeric prices remain numeric in CSV exports", () => {
   assert.ok(toCsv([{ price: -4.8 }]).includes('"-4.8"'));
 });
 test("permissions increase by tier and remain centralized", () => {
-  assert.equal(dashboards.length, 11);
-  assert.equal(dashboards.filter((d) => canAccess("basic", d.id)).length, 4);
-  assert.equal(
-    dashboards.filter((d) => canAccess("professional", d.id)).length,
-    8,
-  );
-  assert.equal(dashboards.filter((d) => canAccess("premium", d.id)).length, 11);
+  assert.equal(canAccessPlan("basic", "basic"), true);
+  assert.equal(canAccessPlan("basic", "professional"), false);
+  assert.equal(canAccessPlan("professional", "basic"), true);
+  assert.equal(canAccessPlan("professional", "professional"), true);
+  assert.equal(canAccessPlan("professional", "premium"), false);
+  assert.equal(canAccessPlan("premium", "basic"), true);
+  assert.equal(canAccessPlan("premium", "professional"), true);
+  assert.equal(canAccessPlan("premium", "premium"), true);
   assert.equal(canAccess("basic", "explorer"), false);
   assert.equal(canAccess("professional", "explorer"), true);
   assert.equal(canAccess("professional", "reports"), false);

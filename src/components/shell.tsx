@@ -2,30 +2,37 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { canAccess, dashboards, planName } from "@/lib/config";
+import { canAccessPlan, planName } from "@/lib/config";
+import { dashboardIcon, type DashboardRecord } from "@/lib/dashboard";
 import { marketEvents } from "@/lib/market";
 import { Badge, EmptyState, Icon, Logo, Modal } from "./ui";
 import { usePortal } from "./portal-provider";
-const navigation = [
-  { label: "Overview", href: "/", icon: "overview" },
-  {
-    label: "Market dashboards",
-    href: "/dashboards",
-    icon: "chart",
-    count: String(dashboards.length),
-  },
-  { label: "Data Explorer", href: "/explorer", icon: "database" },
-  { label: "Reports", href: "/reports", icon: "report" },
-];
 function navigationIsActive(pathname: string, href: string) {
   return href === "/dashboards"
     ? pathname.startsWith("/dashboards")
     : pathname === href;
 }
-export function Shell({ children }: { children: React.ReactNode }) {
+export function Shell({
+  dashboards,
+  children,
+}: {
+  dashboards: DashboardRecord[];
+  children: React.ReactNode;
+}) {
   const pathname = usePathname(),
     router = useRouter();
   const { user, live, status, toast, requestUpgrade } = usePortal();
+  const navigation = [
+    { label: "Overview", href: "/", icon: "overview" },
+    {
+      label: "Market dashboards",
+      href: "/dashboards",
+      icon: "chart",
+      count: String(dashboards.length),
+    },
+    { label: "Data Explorer", href: "/explorer", icon: "database" },
+    { label: "Reports", href: "/reports", icon: "report" },
+  ];
   const [mobile, setMobile] = useState(false),
     [searchOpen, setSearchOpen] = useState(false),
     [query, setQuery] = useState(""),
@@ -63,8 +70,10 @@ export function Shell({ children }: { children: React.ReactNode }) {
               ? "Data Explorer"
               : pathname === "/reports"
                 ? "Research & reports"
-                : dashboards.find((d) => pathname.endsWith(d.id))?.shortTitle ||
-                  "Market intelligence";
+                : pathname.startsWith("/admin")
+                  ? "Dashboard administration"
+                  : dashboards.find((d) => pathname.endsWith(d.slug))?.title ||
+                    "Market intelligence";
   const matches = dashboards.filter((d) =>
     (d.title + " " + d.category + " " + d.description)
       .toLowerCase()
@@ -118,6 +127,23 @@ export function Shell({ children }: { children: React.ReactNode }) {
             );
           })}
         </nav>
+        {user.role === "admin" && (
+          <div className="admin-navigation">
+            <div className="nav-label">Administration</div>
+            <nav aria-label="Administration">
+              <Link
+                href="/admin/dashboards"
+                className={`nav-item ${pathname.startsWith("/admin") ? "active" : ""}`}
+                aria-current={
+                  pathname.startsWith("/admin") ? "page" : undefined
+                }
+              >
+                <Icon name="shield" />
+                <span>Dashboard registry</span>
+              </Link>
+            </nav>
+          </div>
+        )}
         <div className="sidebar-bottom">
           <Link
             href="/settings"
@@ -216,6 +242,12 @@ export function Shell({ children }: { children: React.ReactNode }) {
                       <Icon name="user" />
                       Account & plan
                     </Link>
+                    {user.role === "admin" && (
+                      <Link href="/admin/dashboards">
+                        <Icon name="shield" />
+                        Dashboard registry
+                      </Link>
+                    )}
                     <button onClick={logout}>
                       <Icon name="logout" />
                       Sign out
@@ -259,17 +291,17 @@ export function Shell({ children }: { children: React.ReactNode }) {
                 className="search-result"
                 onClick={() => {
                   setSearchOpen(false);
-                  if (canAccess(user.plan, d.id))
-                    router.push("/dashboards/" + d.id);
-                  else requestUpgrade(d.plan, d.shortTitle);
+                  if (canAccessPlan(user.plan, d.minimumPlan))
+                    router.push("/dashboards/" + d.slug);
+                  else requestUpgrade(d.minimumPlan, d.title);
                 }}
               >
-                <Icon name={d.icon} />
+                <Icon name={dashboardIcon(d)} />
                 <div>
-                  <strong>{d.shortTitle}</strong>
+                  <strong>{d.title}</strong>
                   <small>{d.category}</small>
                 </div>
-                {!canAccess(user.plan, d.id) ? (
+                {!canAccessPlan(user.plan, d.minimumPlan) ? (
                   <Icon name="lock" size={14} />
                 ) : (
                   <Icon name="right" size={14} />

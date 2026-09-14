@@ -12,6 +12,7 @@ type UserRow = {
   last_name: string;
   company: string;
   plan: Plan;
+  role: "user" | "admin";
   status: "active" | "disabled";
   created_at: Date;
 };
@@ -23,7 +24,7 @@ type Registration = Pick<
 
 const USER_COLUMNS = `
   u.id, u.email, u.password_hash, u.first_name, u.last_name,
-  u.company, u.plan, u.status, u.created_at
+  u.company, u.plan, u.role, u.status, u.created_at
 `;
 const SESSION_SECONDS = 86_400;
 const REMEMBER_SECONDS = 30 * 86_400;
@@ -44,6 +45,7 @@ function publicUser(row: UserRow): PublicUser {
     lastName: row.last_name,
     company: row.company,
     plan: row.plan,
+    role: row.role,
     createdAt: row.created_at.toISOString(),
   };
 }
@@ -76,7 +78,7 @@ export const accountRepository = {
           (id, email, password_hash, first_name, last_name, company, plan, status)
          VALUES ($1, $2, $3, $4, $5, $6, 'basic', 'active')
          RETURNING id, email, password_hash, first_name, last_name, company,
-                   plan, status, created_at`,
+                   plan, role, status, created_at`,
         [
           randomUUID(),
           normalizeEmail(input.email),
@@ -154,7 +156,7 @@ export const accountRepository = {
        SET first_name = $2, last_name = $3, company = $4, updated_at = now()
        WHERE u.id = $1 AND u.status = 'active'
        RETURNING id, email, password_hash, first_name, last_name, company,
-                 plan, status, created_at`,
+                 plan, role, status, created_at`,
       [userId, changes.firstName, changes.lastName, changes.company],
     );
     if (!result.rows[0]) throw new Error("Account not found.");

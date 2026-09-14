@@ -2,12 +2,8 @@
 import Link from "next/link";
 import { useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import {
-  canAccess,
-  planName,
-  type DashboardConfig,
-  type Plan,
-} from "@/lib/config";
+import { canAccessPlan, planName, type Plan } from "@/lib/config";
+import type { DashboardRecord, NativeDashboardKey } from "@/lib/dashboard";
 import {
   countries,
   formatNumber,
@@ -25,7 +21,6 @@ import {
 } from "./charts";
 import { Badge, EmptyState, Flag, Icon, Panel, Skeleton } from "./ui";
 import { usePortal } from "./portal-provider";
-import { DashboardViewer } from "./dashboard-viewer";
 import { downloadFile, useMarket } from "./use-market";
 const green = "var(--mint)",
   cyan = "var(--cyan)",
@@ -167,47 +162,53 @@ function analyticsConfig(id: string): {
     columns: priceColumns,
   };
 }
-export function Analytics({ dashboard }: { dashboard: DashboardConfig }) {
+export function Analytics({
+  dashboard,
+  nativeKey,
+  live: dashboardIsLive,
+}: {
+  dashboard: DashboardRecord;
+  nativeKey: NativeDashboardKey;
+  live: boolean;
+}) {
   const { user, live, status, toast } = usePortal(),
     search = useSearchParams();
   const [country, setCountry] = useState(
-    dashboard.id === "country"
+    nativeKey === "country"
       ? "BG"
       : countries.some((c) => c.code === search.get("country"))
         ? search.get("country")!
         : "BG",
   );
   const [days, setDays] = useState(
-    dashboard.id === "historical"
+    nativeKey === "historical"
       ? "365"
-      : dashboard.id === "negative-prices"
+      : nativeKey === "negative-prices"
         ? "30"
         : "1",
   );
   const [resolution, setResolution] = useState(
-    dashboard.id === "historical" ? "daily" : "hourly",
+    nativeKey === "historical" ? "daily" : "hourly",
   );
   const [date, setDate] = useState(
     /^\d{4}-\d{2}-\d{2}$/.test(search.get("date") || "")
       ? search.get("date")!
       : new Date().toISOString().slice(0, 10),
   );
-  const [compare, setCompare] = useState(
-    dashboard.id === "regional" ? "RO" : "",
-  );
+  const [compare, setCompare] = useState(nativeKey === "regional" ? "RO" : "");
   const [tablePage, setTablePage] = useState(0),
     [exporting, setExporting] = useState(false),
     [section, setSection] = useState("analytics");
   const viewerRef = useRef<HTMLDivElement>(null);
-  const allowed = canAccess(user.plan, dashboard.id);
-  const config = analyticsConfig(dashboard.id);
+  const allowed = canAccessPlan(user.plan, dashboard.minimumPlan);
+  const config = analyticsConfig(nativeKey);
   const { data, loading, error, refresh, csvUrl } = useMarket(
-    { dashboard: dashboard.id, country, days, resolution, date, compare },
+    { dashboard: dashboard.slug, country, days, resolution, date, compare },
     allowed,
   );
   const rows = data?.rows || [];
   const liveEnabled =
-    dashboard.live &&
+    dashboardIsLive &&
     (country === "BG" || country === "RO") &&
     days === "1" &&
     date === new Date().toISOString().slice(0, 10) &&
@@ -230,15 +231,15 @@ export function Analytics({ dashboard }: { dashboard: DashboardConfig }) {
   const maxRow = rows.find((r) => Number(r[config.primary]) === max),
     minRow = rows.find((r) => Number(r[config.primary]) === min);
   const primaryLabel =
-    dashboard.id === "energy-mix"
+    nativeKey === "energy-mix"
       ? "Total generation"
-      : dashboard.id === "renewables"
+      : nativeKey === "renewables"
         ? "Renewable output"
-        : dashboard.id === "balancing"
+        : nativeKey === "balancing"
           ? "Settlement price"
-          : dashboard.id === "cross-border"
+          : nativeKey === "cross-border"
             ? "Net exports"
-            : dashboard.id === "intelligence"
+            : nativeKey === "intelligence"
               ? "Capture price"
               : "Latest interval";
   const chartData = useMemo(
@@ -280,13 +281,13 @@ export function Analytics({ dashboard }: { dashboard: DashboardConfig }) {
       <Link className="back-link dashboard-back" href="/dashboards">
         <Icon name="left" size={13} />
         Market dashboards<span>/</span>
-        {dashboard.shortTitle}
+        {dashboard.title}
       </Link>
       <div className="page-heading analytics-heading">
         <div>
           <div className="title-with-badge">
             <h1>{dashboard.title}</h1>
-            <Badge tone="subtle">{planName(dashboard.plan)}</Badge>
+            <Badge tone="subtle">{planName(dashboard.minimumPlan)}</Badge>
           </div>
           <p>{dashboard.description}</p>
         </div>
@@ -299,7 +300,7 @@ export function Analytics({ dashboard }: { dashboard: DashboardConfig }) {
               try {
                 await downloadFile(
                   csvUrl,
-                  `temo-${dashboard.id}-${country}.csv`,
+                  `temo-${dashboard.slug}-${country}.csv`,
                 );
                 toast("Your market data CSV is ready.");
               } catch (e) {
@@ -332,8 +333,8 @@ export function Analytics({ dashboard }: { dashboard: DashboardConfig }) {
       </div>
       {!allowed ? (
         <AccessGate
-          plan={dashboard.plan as "professional" | "premium"}
-          title={dashboard.shortTitle}
+          plan={dashboard.minimumPlan as "professional" | "premium"}
+          title={dashboard.title}
         />
       ) : (
         <>
@@ -342,7 +343,7 @@ export function Analytics({ dashboard }: { dashboard: DashboardConfig }) {
               Market
               <select
                 value={country}
-                disabled={dashboard.id === "country"}
+                disabled={nativeKey === "country"}
                 onChange={(e) => {
                   setCountry(e.target.value);
                   if (compare === e.target.value) setCompare("");
@@ -530,10 +531,7 @@ export function Analytics({ dashboard }: { dashboard: DashboardConfig }) {
                 </span>
               </div>
               <div ref={viewerRef} className="fullscreen-viewer">
-                <DashboardViewer
-                  type={dashboard.viewerType}
-                  source={dashboard.source}
-                >
+                <div className="native-viewer">
                   {section === "analytics" && (
                     <>
                       <Panel
@@ -558,28 +556,28 @@ export function Analytics({ dashboard }: { dashboard: DashboardConfig }) {
                       <div className="analytics-secondary">
                         <Panel
                           title={
-                            dashboard.id === "cross-border"
+                            nativeKey === "cross-border"
                               ? "Regional interconnections"
-                              : dashboard.id === "energy-mix" ||
-                                  dashboard.id === "renewables"
+                              : nativeKey === "energy-mix" ||
+                                  nativeKey === "renewables"
                                 ? "Technology share"
                                 : "Price distribution"
                           }
                           subtitle={
-                            dashboard.id === "cross-border"
+                            nativeKey === "cross-border"
                               ? "Scheduled power exchange · MW"
-                              : dashboard.id === "energy-mix" ||
-                                  dashboard.id === "renewables"
+                              : nativeKey === "energy-mix" ||
+                                  nativeKey === "renewables"
                                 ? "Latest selected interval"
                                 : "Number of intervals by price band"
                           }
                         >
-                          {dashboard.id === "cross-border" ? (
+                          {nativeKey === "cross-border" ? (
                             <FlowNetwork
                               flow={country === "BG" ? latest?.netFlow : 684}
                             />
-                          ) : dashboard.id === "energy-mix" ||
-                            dashboard.id === "renewables" ? (
+                          ) : nativeKey === "energy-mix" ||
+                            nativeKey === "renewables" ? (
                             <MixChart
                               generation={(latest?.generation || 5840) / 1000}
                               mix={generationMix.map((m) => ({
@@ -654,17 +652,17 @@ export function Analytics({ dashboard }: { dashboard: DashboardConfig }) {
                               </span>
                               <div>
                                 <span>
-                                  {dashboard.id === "negative-prices"
+                                  {nativeKey === "negative-prices"
                                     ? "Negative-price duration"
                                     : "Period spread"}
                                 </span>
                                 <strong>
-                                  {dashboard.id === "negative-prices"
+                                  {nativeKey === "negative-prices"
                                     ? `${formatNumber(negativeHours, 1)} hours`
                                     : `${formatNumber(max - min)} ${unit}`}
                                 </strong>
                                 <small>
-                                  {dashboard.id === "negative-prices"
+                                  {nativeKey === "negative-prices"
                                     ? `${negatives.length} of ${rows.length} intervals below zero`
                                     : "Difference between the high and low"}
                                 </small>
@@ -819,7 +817,7 @@ export function Analytics({ dashboard }: { dashboard: DashboardConfig }) {
                       pageSize={12}
                     />
                   </Panel>
-                </DashboardViewer>
+                </div>
               </div>
             </>
           )}

@@ -27,7 +27,7 @@ const faqs = [
   ],
   [
     "Can I connect my existing Streamlit or Plotly dashboards?",
-    "The portal has a reusable dashboard viewer with native, iframe, Streamlit, and generated-HTML modes. Native charts are enabled in this demo. Real external sources can be connected through an approved viewer adapter during a future integration phase.",
+    "Administrators can add deployed Streamlit or external HTML dashboards from Dashboard admin. Enter the dashboard metadata, source URL, required plan, and enabled state; no Next.js route or card change is required.",
   ],
   [
     "How are accounts stored?",

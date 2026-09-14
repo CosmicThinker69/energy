@@ -511,6 +511,9 @@ td,
 .nav-item > svg:last-child:not(:first-child) {
   margin-left: auto;
 }
+.admin-navigation {
+  margin-top: 24px;
+}
 .sidebar-bottom {
   margin-top: auto;
   padding-top: 36px;
@@ -2368,6 +2371,87 @@ code {
   display: flex;
   align-items: center;
   gap: 5px;
+}
+.admin-heading {
+  align-items: flex-end;
+}
+.admin-summary {
+  display: flex;
+  align-items: center;
+  gap: 22px;
+  color: var(--muted);
+  font-size: var(--font-ui);
+  margin: -4px 0 18px;
+}
+.admin-summary span + span {
+  border-left: 1px solid var(--border);
+  padding-left: 22px;
+}
+.admin-notice {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--mint);
+  font-size: var(--font-ui);
+  margin: 0 0 14px;
+}
+.admin-dashboard-panel {
+  padding: 0;
+}
+.admin-dashboard-table {
+  min-width: 1220px;
+}
+.admin-dashboard-table td:first-child {
+  min-width: 210px;
+}
+.admin-dashboard-table code {
+  color: var(--muted);
+  font-size: var(--font-caption);
+}
+.admin-row-actions {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  white-space: nowrap;
+}
+.text-button.danger {
+  color: var(--rose);
+}
+.admin-dashboard-form {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  padding: 22px;
+}
+.admin-dashboard-form label:not(.checkbox-label) {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  color: var(--muted);
+  font-size: var(--font-ui);
+}
+.admin-dashboard-form input,
+.admin-dashboard-form select,
+.admin-dashboard-form textarea {
+  width: 100%;
+  font-size: var(--font-ui);
+}
+.admin-dashboard-form textarea {
+  resize: vertical;
+  min-height: 88px;
+}
+.admin-dashboard-form .field-help {
+  margin: 0;
+}
+.admin-enabled-field {
+  align-self: flex-start;
+}
+.admin-form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding-top: 4px;
+  border-top: 1px solid var(--border);
 }
 .dashboard-back {
   margin: 0 0 20px;
@@ -5136,5 +5220,24 @@ select {
     animation: none !important;
     transition: none !important;
     scroll-behavior: auto !important;
+  }
+}
+
+@media (max-width: 700px) {
+  .admin-heading {
+    align-items: stretch;
+  }
+  .admin-heading .button {
+    width: 100%;
+  }
+  .admin-summary {
+    flex-wrap: wrap;
+    gap: 8px 14px;
+  }
+  .admin-summary span + span {
+    padding-left: 14px;
+  }
+  .admin-dashboard-form .form-row {
+    flex-direction: column;
   }
 }

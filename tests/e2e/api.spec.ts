@@ -58,7 +58,42 @@ test("API validation, forged access, session persistence, and logout revocation"
       await request.get("/api/market?dashboard=balancing&plan=premium")
     ).status(),
   ).toBe(403);
+  expect(
+    (
+      await request.patch(
+        "/api/admin/dashboards/00000000-0000-4000-8000-000000000000",
+        { data: { action: "enabled", enabled: false } },
+      )
+    ).status(),
+  ).toBe(403);
+  expect(
+    (
+      await request.delete(
+        "/api/admin/dashboards/00000000-0000-4000-8000-000000000000",
+      )
+    ).status(),
+  ).toBe(403);
   expect((await request.get("/api/reports/weekly-outlook")).status()).toBe(403);
+  expect((await request.get("/api/admin/dashboards")).status()).toBe(403);
+  expect(
+    (
+      await request.post("/api/admin/dashboards", {
+        data: {
+          slug: "forged-admin-dashboard",
+          title: "Forged dashboard",
+          category: "Testing",
+          description: "",
+          viewerType: "streamlit",
+          sourceUrl: "https://example.com",
+          nativeKey: null,
+          minimumPlan: "basic",
+          badge: null,
+          enabled: true,
+          sortOrder: 0,
+        },
+      })
+    ).status(),
+  ).toBe(403);
   expect(
     (
       await request.patch("/api/account", { data: { plan: "premium" } })

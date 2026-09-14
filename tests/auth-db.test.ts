@@ -34,6 +34,7 @@ test("PostgreSQL accounts, sessions, plans, status, and reset tokens", async () 
   });
   assert.equal(registered.email, email);
   assert.equal(registered.plan, "basic");
+  assert.equal(registered.role, "user");
   assert.equal("password_hash" in registered, false);
 
   await assert.rejects(

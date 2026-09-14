@@ -1,10 +1,10 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { Suspense } from "react";
-import { dashboards, planName } from "@/lib/config";
-import { Analytics } from "@/components/analytics";
+import { planName } from "@/lib/config";
 import { AccessGate } from "@/components/analytics";
-import { requireAccess } from "@/lib/server/auth";
+import { requireDashboardPlan } from "@/lib/server/auth";
+import { dashboardRepository } from "@/lib/server/dashboard-repository";
 import { DashboardViewer } from "@/components/dashboard-viewer";
 import { Badge, Icon } from "@/components/ui";
 export default async function Page({
@@ -13,11 +13,11 @@ export default async function Page({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const dashboard = dashboards.find((d) => d.id === id);
+  const dashboard = await dashboardRepository.getDashboardBySlug(id);
   if (!dashboard) notFound();
-  const user = await requireAccess(dashboard.id);
+  const user = await requireDashboardPlan(dashboard.minimumPlan);
   if (!user) {
-    return <AccessGate plan={dashboard.plan} title={dashboard.title} />;
+    return <AccessGate plan={dashboard.minimumPlan} title={dashboard.title} />;
   }
   if (dashboard.viewerType !== "native") {
     return (
@@ -25,33 +25,29 @@ export default async function Page({
         <Link className="back-link dashboard-back" href="/dashboards">
           <Icon name="left" size={13} />
           Market dashboards<span>/</span>
-          {dashboard.shortTitle}
+          {dashboard.title}
         </Link>
         <div className="page-heading analytics-heading">
           <div>
             <div className="title-with-badge">
               <h1>{dashboard.title}</h1>
-              <Badge tone="subtle">{planName(dashboard.plan)}</Badge>
-              {dashboard.liveData && (
-                <Badge tone="green" dot>
-                  LIVE DATA
+              <Badge tone="subtle">{planName(dashboard.minimumPlan)}</Badge>
+              {dashboard.badge && (
+                <Badge tone="green" dot={dashboard.badge === "LIVE DATA"}>
+                  {dashboard.badge}
                 </Badge>
               )}
             </div>
             <p>{dashboard.description}</p>
           </div>
         </div>
-        <DashboardViewer
-          type={dashboard.viewerType}
-          source={dashboard.source}
-          title={dashboard.title}
-        />
+        <DashboardViewer dashboard={dashboard} />
       </>
     );
   }
   return (
     <Suspense>
-      <Analytics dashboard={dashboard} />
+      <DashboardViewer dashboard={dashboard} />
     </Suspense>
   );
 }

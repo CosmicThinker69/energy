@@ -20,8 +20,8 @@ import {
   Sparkline,
 } from "./charts";
 import { usePortal } from "./portal-provider";
-import { dashboards } from "@/lib/config";
-export function Overview() {
+import type { DashboardRecord, NativeDashboardKey } from "@/lib/dashboard";
+export function Overview({ dashboards }: { dashboards: DashboardRecord[] }) {
   const { user, live, status, feed, toast } = usePortal();
   const [country, setCountry] = useState("BG"),
     [date, setDate] = useState(new Date().toISOString().slice(0, 10)),
@@ -31,6 +31,10 @@ export function Overview() {
   const selected = countries.find((c) => c.code === country)!;
   const isToday = date === new Date().toISOString().slice(0, 10);
   const activeLive = isToday ? live : null;
+  const dashboardPath = (key: NativeDashboardKey) => {
+    const dashboard = dashboards.find((item) => item.nativeKey === key);
+    return dashboard ? `/dashboards/${dashboard.slug}` : "/dashboards";
+  };
   const rows = useMemo(
     () =>
       generateMarketRows({
@@ -329,7 +333,7 @@ export function Overview() {
                   }
                 />
                 <Link
-                  href="/dashboards/day-ahead"
+                  href={dashboardPath("day-ahead")}
                   aria-label="Open day-ahead dashboard"
                 >
                   <Icon name="external" size={14} />
@@ -341,7 +345,7 @@ export function Overview() {
               subtitle={`${selected.name} · Actual generation`}
               action={
                 <Link
-                  href="/dashboards/energy-mix"
+                  href={dashboardPath("energy-mix")}
                   className="icon-button"
                   aria-label="Open energy mix"
                 >
@@ -364,13 +368,17 @@ export function Overview() {
               title="Regional market comparison"
               subtitle="Day-ahead prices across European bidding zones"
               action={
-                <Link href="/dashboards/regional" className="text-button">
+                <Link href={dashboardPath("regional")} className="text-button">
                   View markets
                   <Icon name="right" size={14} />
                 </Link>
               }
             >
-              <RegionalTable live={activeLive} date={date} />
+              <RegionalTable
+                live={activeLive}
+                date={date}
+                dayAheadPath={dashboardPath("day-ahead")}
+              />
               <div className="table-foot">
                 <span>
                   <span className="status-dot" />8 markets connected
@@ -383,7 +391,7 @@ export function Overview() {
               subtitle="A connected European energy system"
               action={
                 <Link
-                  href="/dashboards/cross-border"
+                  href={dashboardPath("cross-border")}
                   className="icon-button"
                   aria-label="Open cross-border flows"
                 >
@@ -419,10 +427,10 @@ export function Overview() {
             <Link
               href={
                 i === 0
-                  ? "/dashboards/day-ahead"
+                  ? dashboardPath("day-ahead")
                   : i === 1
-                    ? "/dashboards/renewables"
-                    : "/dashboards/cross-border"
+                    ? dashboardPath("renewables")
+                    : dashboardPath("cross-border")
               }
               className="market-event"
               key={e.title}
@@ -573,9 +581,11 @@ export function Kpi({
 export function RegionalTable({
   live,
   date,
+  dayAheadPath,
 }: {
   live: LiveSnapshot | null;
   date?: string;
+  dayAheadPath: string;
 }) {
   const historical = date && date !== new Date().toISOString().slice(0, 10);
   const history = useMemo(
@@ -605,7 +615,7 @@ export function RegionalTable({
             <tr key={c.code}>
               <td>
                 <Link
-                  href={`/dashboards/day-ahead?country=${c.code}${date ? `&date=${date}` : ""}`}
+                  href={`${dayAheadPath}?country=${c.code}${date ? `&date=${date}` : ""}`}
                 >
                   <Flag code={c.code} />
                   <strong>{c.name}</strong>

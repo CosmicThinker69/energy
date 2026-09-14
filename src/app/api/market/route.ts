@@ -1,17 +1,19 @@
-import { authorize } from "@/lib/server/auth";
-import { dashboards } from "@/lib/config";
+import { authorize, authorizeDashboardPlan } from "@/lib/server/auth";
+import { dashboardRepository } from "@/lib/server/dashboard-repository";
 import { countries, generateMarketRows, toCsv } from "@/lib/market";
 export async function GET(request: Request) {
   const p = new URL(request.url).searchParams;
   const id = p.get("dashboard") || "day-ahead";
-  const config = dashboards.find((d) => d.id === id);
-  if (!config && id !== "explorer")
+  const dashboard =
+    id === "explorer" ? null : await dashboardRepository.getDashboardBySlug(id);
+  if (!dashboard && id !== "explorer")
     return Response.json({ error: "Dashboard not found." }, { status: 404 });
-  const { error } = await authorize(
-    id === "explorer" ? "explorer" : config!.id,
-  );
+  const { error } =
+    id === "explorer"
+      ? await authorize("explorer")
+      : await authorizeDashboardPlan(dashboard!.minimumPlan);
   if (error) return error;
-  if (config && config.viewerType !== "native")
+  if (dashboard && dashboard.viewerType !== "native")
     return Response.json(
       { error: "This dashboard uses its configured external data source." },
       { status: 400 },
@@ -47,7 +49,7 @@ export async function GET(request: Request) {
       { error: "Choose a valid calendar date." },
       { status: 400 },
     );
-  if (id === "country" && country !== "BG")
+  if (dashboard?.nativeKey === "country" && country !== "BG")
     return Response.json(
       {
         error:
