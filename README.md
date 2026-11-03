@@ -10,8 +10,9 @@ private Python bot; browser requests never contain the service secret.
 Set server-only `BOT_SERVICE_URL` (for example,
 `http://energy-bot.railway.internal:8080`) and `BOT_SERVICE_TOKEN` (the same random
 secret of at least 32 characters configured on the bot). No migration is needed.
-The bot service, persistent volume and separate Ollama host must be configured
-before answers are available. See `energy-bot/DEPLOYMENT.md` in the sibling repo
+The bot service and persistent volume must be configured. Answer generation and
+embeddings now use OpenAI; `OPENAI_API_KEY` belongs only on energy-bot. The retained
+Ollama service can be stopped while OpenAI is active. See `energy-bot/DEPLOYMENT.md` in the sibling repo
 for the full setup. This integration preserves the bot's existing independent
 question flow and document/SQL behavior; it does not query market PostgreSQL.
 
