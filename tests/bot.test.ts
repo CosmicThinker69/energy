@@ -254,6 +254,40 @@ test("missing configuration fails closed without making requests", async () => {
   assert.equal(calls.length, count);
 });
 
+test("setup diagnostics identify the failed setting for admins without exposing values", async () => {
+  const count = calls.length;
+  const admin = { ...premium, role: "admin" as const };
+  try {
+    for (const [url, token, message] of [
+      ["", secret, "BOT_SERVICE_URL is missing"],
+      [origin, "", "BOT_SERVICE_TOKEN is missing"],
+      [origin, "YOUR_EXISTING_BOT_SERVICE_TOKEN", "example placeholder"],
+      [origin, "short-private-token", "shorter than 32"],
+      [`${origin}/api`, secret, "BOT_SERVICE_URL on the main app is invalid"],
+    ]) {
+      process.env.BOT_SERVICE_URL = url;
+      process.env.BOT_SERVICE_TOKEN = token;
+      const response = await forward(request("status"), ["status"], admin);
+      assert.equal(response.status, 503);
+      const data = await response.json();
+      assert.ok(data.error.includes(message));
+      assert.ok(!data.error.includes(secret));
+      assert.ok(!data.error.includes("short-private-token"));
+      const memberResponse = await forward(
+        request("status"),
+        ["status"],
+        premium,
+      );
+      assert.equal(memberResponse.status, 503);
+      assert.doesNotMatch(await memberResponse.text(), /BOT_SERVICE_/);
+    }
+    assert.equal(calls.length, count);
+  } finally {
+    process.env.BOT_SERVICE_URL = origin;
+    process.env.BOT_SERVICE_TOKEN = secret;
+  }
+});
+
 test("admin multipart uploads preserve boundaries and enforce the streamed size limit", async () => {
   const admin = { ...premium, role: "admin" as const };
   const form = new FormData();

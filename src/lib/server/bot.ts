@@ -87,12 +87,29 @@ export async function forwardBotRequest(
 
   const base = process.env.BOT_SERVICE_URL;
   const token = process.env.BOT_SERVICE_TOKEN;
-  if (!base || !token || token.length < 32) {
-    return error(
-      "The research assistant is not connected yet. Please try again later.",
+  const setupError = (detail: string) =>
+    error(
+      user.role === "admin"
+        ? detail
+        : "The research assistant is not connected yet. Please try again later.",
       503,
     );
-  }
+  if (!base)
+    return setupError(
+      "BOT_SERVICE_URL is missing on the main app. Add it to the energy service variables and redeploy energy.",
+    );
+  if (!token)
+    return setupError(
+      "BOT_SERVICE_TOKEN is missing on the main app. Copy the token from energy-bot to the energy service variables and redeploy energy.",
+    );
+  if (token === "YOUR_EXISTING_BOT_SERVICE_TOKEN")
+    return setupError(
+      "BOT_SERVICE_TOKEN still contains the example placeholder. Replace it with the actual token from energy-bot and redeploy energy.",
+    );
+  if (token.length < 32)
+    return setupError(
+      "BOT_SERVICE_TOKEN on the main app is shorter than 32 characters. Use the same token of at least 32 characters on energy and energy-bot, then redeploy both.",
+    );
   let url: URL;
   try {
     url = new URL(base);
@@ -108,9 +125,8 @@ export async function forwardBotRequest(
     }
     url.pathname = "/api/" + path.map(encodeURIComponent).join("/");
   } catch {
-    return error(
-      "The research assistant is not connected yet. Please try again later.",
-      503,
+    return setupError(
+      "BOT_SERVICE_URL on the main app is invalid. Use http://energy-bot.railway.internal:8080 without an /api suffix, then redeploy energy.",
     );
   }
 
@@ -169,6 +185,11 @@ export async function forwardBotRequest(
     if (!response.ok) {
       // The original bot includes internal error details. Keep these server-side.
       await response.body?.cancel();
+      if (response.status === 401 && user.role === "admin")
+        return error(
+          "The bot rejected BOT_SERVICE_TOKEN. Set the exact same token on energy and energy-bot, then redeploy both services.",
+          503,
+        );
       if (response.status === 400 || response.status === 422)
         return error(
           "The assistant could not process that request. Check your question or document format.",
