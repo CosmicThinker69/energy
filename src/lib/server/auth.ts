@@ -2,6 +2,7 @@ import { cookies } from "next/headers";
 import { forbidden, redirect } from "next/navigation";
 import { accountRepository } from "./repository";
 import { canAccess, canAccessPlan, type Plan } from "../config";
+export { sameOrigin } from "./origin";
 export const SESSION_COOKIE = "temo-session";
 export async function currentUser() {
   const token = (await cookies()).get(SESSION_COOKIE)?.value;
@@ -13,13 +14,13 @@ export async function requireUser() {
   return user;
 }
 export async function requireAccess(
-  resource: "explorer" | "reports" | "overview",
+  resource: "explorer" | "reports" | "overview" | "assistant",
 ) {
   const user = await requireUser();
   return canAccess(user.plan, resource) ? user : null;
 }
 export async function authorize(
-  resource?: "explorer" | "reports" | "overview",
+  resource?: "explorer" | "reports" | "overview" | "assistant",
 ) {
   const user = await currentUser();
   if (!user)
@@ -88,16 +89,4 @@ export async function authorizeAdmin() {
       ),
     };
   return { user, error: null };
-}
-export function sameOrigin(request: Request) {
-  const origin = request.headers.get("origin");
-  if (!origin) return true;
-  try {
-    return (
-      new URL(origin).host ===
-      (request.headers.get("host") || new URL(request.url).host)
-    );
-  } catch {
-    return false;
-  }
 }

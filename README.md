@@ -1,5 +1,20 @@
 # TEMO Energy Intelligence
 
+## Ask TEMO integration
+
+Premium members can open `/assistant` to ask questions about a shared research
+library. Administrators can upload/delete documents on that page. The app checks
+sessions, plans and admin permissions before forwarding approved requests to the
+private Python bot; browser requests never contain the service secret.
+
+Set server-only `BOT_SERVICE_URL` (for example,
+`http://energy-bot.railway.internal:8080`) and `BOT_SERVICE_TOKEN` (the same random
+secret of at least 32 characters configured on the bot). No migration is needed.
+The bot service, persistent volume and separate Ollama host must be configured
+before answers are available. See `energy-bot/DEPLOYMENT.md` in the sibling repo
+for the full setup. This integration preserves the bot's existing independent
+question flow and document/SQL behavior; it does not query market PostgreSQL.
+
 A full-stack customer portal for European electricity-market analytics, built with Next.js 16 App Router, React 19, TypeScript, PostgreSQL, and Recharts.
 
 ## Configuration

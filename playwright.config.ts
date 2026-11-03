@@ -6,7 +6,7 @@ export default defineConfig({
   timeout: 45000,
   expect: { timeout: 10000 },
   use: {
-    baseURL: "http://localhost:3000",
+    baseURL: "http://127.0.0.1:3000",
     headless: true,
     viewport: { width: 1440, height: 1050 },
     screenshot: "only-on-failure",
@@ -15,7 +15,7 @@ export default defineConfig({
   reporter: "list",
   webServer: {
     command: "npm run dev",
-    url: "http://localhost:3000",
+    url: "http://127.0.0.1:3000",
     reuseExistingServer: true,
     timeout: 120000,
   },

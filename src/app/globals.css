@@ -1,3 +1,5 @@
+@import "./assistant.css";
+
 :root {
   --font-caption: 0.75rem;
   --font-ui: 0.875rem;

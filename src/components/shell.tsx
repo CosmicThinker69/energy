@@ -32,6 +32,7 @@ export function Shell({
     },
     { label: "Data Explorer", href: "/explorer", icon: "database" },
     { label: "Reports", href: "/reports", icon: "report" },
+    { label: "Ask TEMO", href: "/assistant", icon: "sparkles" },
   ];
   const [mobile, setMobile] = useState(false),
     [searchOpen, setSearchOpen] = useState(false),
@@ -70,10 +71,12 @@ export function Shell({
               ? "Data Explorer"
               : pathname === "/reports"
                 ? "Research & reports"
-                : pathname.startsWith("/admin")
-                  ? "Dashboard administration"
-                  : dashboards.find((d) => pathname.endsWith(d.slug))?.title ||
-                    "Market intelligence";
+                : pathname === "/assistant"
+                  ? "Ask TEMO"
+                  : pathname.startsWith("/admin")
+                    ? "Dashboard administration"
+                    : dashboards.find((d) => pathname.endsWith(d.slug))
+                        ?.title || "Market intelligence";
   const matches = dashboards.filter((d) =>
     (d.title + " " + d.category + " " + d.description)
       .toLowerCase()

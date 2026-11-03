@@ -5,12 +5,12 @@ export function canAccessPlan(plan: Plan, minimumPlan: Plan) {
 }
 export function canAccess(
   plan: Plan,
-  resource: "explorer" | "reports" | "overview",
+  resource: "explorer" | "reports" | "overview" | "assistant",
 ) {
   const required =
     resource === "explorer"
       ? "professional"
-      : resource === "reports"
+      : resource === "reports" || resource === "assistant"
         ? "premium"
         : "basic";
   return canAccessPlan(plan, required);
@@ -48,6 +48,7 @@ export const planDetails: Record<
       "Negative price analysis",
       "Historical & advanced intelligence",
       "Advanced research reports",
+      "Ask TEMO research assistant",
     ],
   },
 };

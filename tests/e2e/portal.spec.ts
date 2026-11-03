@@ -413,14 +413,14 @@ test("registration starts on Basic and profile changes persist", async ({
   await page.goto("/settings");
   await expect(page.getByText("Basic", { exact: true }).first()).toBeVisible();
   await page
-    .getByLabel("Company", { exact: true })
+    .getByRole("textbox", { name: "Company", exact: true })
     .fill("Arc Energy Analytics");
   await page.getByRole("button", { name: "Save changes" }).click();
   await expect(page.getByRole("status")).toContainText("saved");
   await page.reload();
-  await expect(page.getByLabel("Company", { exact: true })).toHaveValue(
-    "Arc Energy Analytics",
-  );
+  await expect(
+    page.getByRole("textbox", { name: "Company", exact: true }),
+  ).toHaveValue("Arc Energy Analytics");
   await page.getByRole("button", { name: "Open account menu" }).click();
   await page.getByRole("button", { name: "Sign out", exact: true }).click();
   await expect(page).toHaveURL("/login");
