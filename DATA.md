@@ -10,11 +10,13 @@ Sources are independent records, including when they share the same upstream mea
 
 ## Local configuration and deployment
 
+**Current hosting arrangement:** the complete market database and collectors stay local. The hosted Railway portal reads through the authenticated outbound agent described in [LOCAL-DATA-ACCESS.md](LOCAL-DATA-ACCESS.md). Railway retains its existing account database; the full history is not uploaded. The following connection notes describe how the original local import was established.
+
 The previously configured Railway PostgreSQL endpoint refused connections during implementation. The working local PostgreSQL connection from `energy-streamlit/.env` is now set in **ignored** `app/.env.local`; the original Railway URL remains in `.env`. The portal and collectors therefore share the local database. The existing Streamlit tables in `public` remain intact; all new market tables are in `energy`, and account/catalogue tables are in `portal`.
 
 Provider keys are in ignored `.env.data`. The local ENTSO-E key is reused from the sibling extractor if `ENTSOE_API_TOKEN` is absent. Shell environment variables take precedence. No provider key belongs in a `NEXT_PUBLIC_` setting.
 
-These changes and imported data are local. A Railway deployment needs a working persistent PostgreSQL database, migrations, the server-side environment variables, and a separately running collector service. Set `DATABASE_URL` on both services to the same destination. Do not upload `.env` files or `.venv-data`. Do not seed production demo accounts.
+For the current hybrid setup, Railway's `DATABASE_URL` continues to point to its existing private account database. The local agent's `DATABASE_URL` points to the full local market database. `DATA_BACKEND=local-agent` on Railway routes market reads through the agent. Do not upload `.env` files or `.venv-data`, and do not seed production demo accounts. A future fully hosted market database would require a separate deliberate data migration.
 
 ## Reproduce collection
 

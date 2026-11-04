@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { requireUser } from "@/lib/server/auth";
-import { dataCoverage } from "@/lib/server/energy-repository";
+import { readCoverage as dataCoverage } from "@/lib/server/energy-service";
+import { LocalDataUnavailable } from "@/lib/server/local-data-bridge";
 import { Panel } from "@/components/ui";
 import { SourceData } from "@/components/source-data";
 import { canAccess } from "@/lib/config";
@@ -12,7 +13,26 @@ export default async function DataPage({
 }) {
   const user = await requireUser();
   const params = await searchParams;
-  const { coverage, sources, collectionIssues } = await dataCoverage();
+  let result: Awaited<ReturnType<typeof dataCoverage>>;
+  try {
+    result = await dataCoverage();
+  } catch (error) {
+    if (error instanceof LocalDataUnavailable)
+      return (
+        <>
+          <h1>Data catalogue</h1>
+          <p role="status">
+            The local data computer is disconnected. Keep the TEMO data agent
+            running to load market data.
+          </p>
+          <Link className="button" href="/data">
+            Retry connection
+          </Link>
+        </>
+      );
+    throw error;
+  }
+  const { coverage, sources, collectionIssues } = result;
   const grouped = new Map<
     string,
     {

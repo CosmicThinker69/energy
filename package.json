@@ -10,6 +10,8 @@
     "test": "tsx --conditions=react-server --test tests/*.test.ts",
     "test:e2e": "playwright test",
     "db:migrate": "tsx scripts/migrate.ts",
+    "db:migrate:production": "node scripts/migrate-production.mjs",
+    "data:agent": "node --conditions=react-server --import tsx scripts/local-data-agent.ts",
     "db:seed": "tsx scripts/seed.ts",
     "data:quality": "tsx --conditions=react-server scripts/data-quality.ts",
     "audit:ui": "node scripts/visual-audit.mjs",

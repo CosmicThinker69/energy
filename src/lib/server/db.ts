@@ -17,6 +17,10 @@ function createPool() {
     max: 10,
     idleTimeoutMillis: 30_000,
     connectionTimeoutMillis: 10_000,
+    options:
+      process.env.DATA_AGENT_READ_ONLY === "1"
+        ? "-c default_transaction_read_only=on -c statement_timeout=30000"
+        : undefined,
   });
 }
 

@@ -25,6 +25,55 @@ export async function dataCoverage() {
   };
 }
 
+export type ObservationQuery = {
+  source: string;
+  dataset: string;
+  area: string;
+  start: string;
+  end: string;
+  metric?: string | null;
+  forecastRun?: string | null;
+  limit: number;
+  offset: number;
+};
+export async function observationPage(args: ObservationQuery) {
+  const rows = await query(
+    `SELECT o.source,o.dataset,o.area,o.metric,o.dimensions,o.interval_start,o.interval_end,
+    o.value,o.unit,o.quality,o.forecast_run,o.provider_published_at,o.first_seen_at,o.last_seen_at,
+    s.attribution,s.licence,s.upstream
+    FROM energy.observations o JOIN energy.sources s ON s.id=o.source
+    WHERE o.source=$1 AND o.dataset=$2 AND o.area=$3 AND o.interval_start>=$4 AND o.interval_start<$5
+      AND ($6::text IS NULL OR o.metric=$6) AND ($7::text IS NULL OR o.forecast_run=$7)
+    ORDER BY o.interval_start,o.metric,o.dimension_key,o.forecast_run LIMIT $8 OFFSET $9`,
+    [
+      args.source,
+      args.dataset,
+      args.area,
+      new Date(args.start),
+      new Date(args.end),
+      args.metric || null,
+      args.forecastRun || null,
+      args.limit + 1,
+      args.offset,
+    ],
+  );
+  return {
+    data: rows.rows.slice(0, args.limit),
+    nextOffset: rows.rows.length > args.limit ? args.offset + args.limit : null,
+    timezone: "UTC",
+    endExclusive: true,
+  };
+}
+export async function collectionStatus() {
+  const result = await query<{ updated_at: Date | null }>(
+    "SELECT max(attempted_at) AS updated_at FROM energy.collection_chunks",
+  );
+  return {
+    updatedAt: result.rows[0]?.updated_at?.toISOString() || null,
+    source: "Stored provider data",
+  };
+}
+
 // Stored intervals are never overwritten with live simulations. Bucket values are
 // weighted by their actual overlap in seconds, and partial series remain missing.
 export async function storedMarketRows({

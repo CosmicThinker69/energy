@@ -3,7 +3,7 @@ import { liveSnapshot } from "@/lib/market";
 import { accountRepository } from "@/lib/server/repository";
 import { cookies } from "next/headers";
 import { SESSION_COOKIE } from "@/lib/server/auth";
-import { query } from "@/lib/server/db";
+import { readCollectionStatus } from "@/lib/server/energy-service";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export async function GET(request: Request) {
@@ -34,12 +34,10 @@ export async function GET(request: Request) {
             return;
           }
           if (process.env.MARKET_DATA_MODE !== "demo") {
-            const result = await query<{ updated_at: Date | null }>(
-              "SELECT max(attempted_at) AS updated_at FROM energy.collection_chunks",
-            );
+            const result = await readCollectionStatus();
             controller.enqueue(
               encoder.encode(
-                `event: collection\ndata: ${JSON.stringify({ updatedAt: result.rows[0]?.updated_at, source: "Stored provider data" })}\n\n`,
+                `event: collection\ndata: ${JSON.stringify(result)}\n\n`,
               ),
             );
             return;

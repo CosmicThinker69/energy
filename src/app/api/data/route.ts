@@ -1,6 +1,7 @@
 import { authorize } from "@/lib/server/auth";
-import { query } from "@/lib/server/db";
 import { ENERGY_SOURCES } from "@/lib/server/energy-repository";
+import { readObservations } from "@/lib/server/energy-service";
+import { LocalDataUnavailable } from "@/lib/server/local-data-bridge";
 import { toCsv } from "@/lib/market";
 
 export const runtime = "nodejs";
@@ -41,48 +42,48 @@ export async function GET(request: Request) {
       { status: 400 },
     );
   }
-  const rows = await query(
-    `SELECT o.source,o.dataset,o.area,o.metric,o.dimensions,o.interval_start,o.interval_end,
-    o.value,o.unit,o.quality,o.forecast_run,o.provider_published_at,o.first_seen_at,o.last_seen_at,
-    s.attribution,s.licence,s.upstream
-    FROM energy.observations o JOIN energy.sources s ON s.id=o.source
-    WHERE o.source=$1 AND o.dataset=$2 AND o.area=$3 AND o.interval_start>=$4 AND o.interval_start<$5
-      AND ($6::text IS NULL OR o.metric=$6) AND ($7::text IS NULL OR o.forecast_run=$7)
-    ORDER BY o.interval_start,o.metric,o.dimension_key,o.forecast_run LIMIT $8 OFFSET $9`,
-    [
+  try {
+    const result = await readObservations({
       source,
       dataset,
       area,
-      new Date(from),
-      new Date(to),
-      p.get("metric"),
-      p.get("forecast_run"),
-      limit + 1,
+      start: new Date(from).toISOString(),
+      end: new Date(to).toISOString(),
+      metric: p.get("metric"),
+      forecastRun: p.get("forecast_run"),
+      limit,
       offset,
-    ],
-  );
-  const more = rows.rows.length > limit;
-  const data = rows.rows.slice(0, limit);
-  if (p.get("format") === "csv")
-    return new Response(
-      toCsv(
-        data.map((r) => ({ ...r, dimensions: JSON.stringify(r.dimensions) })),
-      ),
-      {
-        headers: {
-          "Content-Type": "text/csv; charset=utf-8",
-          "Content-Disposition": 'attachment; filename="temo-observations.csv"',
-          "Cache-Control": "no-store",
+    });
+    const data = result.data;
+    if (p.get("format") === "csv")
+      return new Response(
+        toCsv(
+          data.map((r) => ({ ...r, dimensions: JSON.stringify(r.dimensions) })),
+        ),
+        {
+          headers: {
+            "Content-Type": "text/csv; charset=utf-8",
+            "Content-Disposition":
+              'attachment; filename="temo-observations.csv"',
+            "Cache-Control": "no-store",
+          },
         },
+      );
+    return Response.json(
+      {
+        data,
+        nextOffset: result.nextOffset,
+        timezone: "UTC",
+        endExclusive: true,
       },
+      { headers: { "Cache-Control": "no-store" } },
     );
-  return Response.json(
-    {
-      data,
-      nextOffset: more ? offset + limit : null,
-      timezone: "UTC",
-      endExclusive: true,
-    },
-    { headers: { "Cache-Control": "no-store" } },
-  );
+  } catch (error) {
+    if (error instanceof LocalDataUnavailable)
+      return Response.json(
+        { error: error.message },
+        { status: 503, headers: { "Cache-Control": "no-store" } },
+      );
+    throw error;
+  }
 }
