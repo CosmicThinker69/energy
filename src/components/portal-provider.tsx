@@ -13,6 +13,7 @@ import { type LiveSnapshot } from "@/lib/market";
 import { Icon, Modal } from "./ui";
 type FeedEntry = { time: string; text: string; id: number };
 type PortalContext = {
+  dataMode: "stored" | "demo";
   user: PublicUser;
   live: LiveSnapshot | null;
   status: "connecting" | "live" | "reconnecting";
@@ -30,9 +31,11 @@ export function usePortal() {
 export function PortalProvider({
   initialUser,
   children,
+  dataMode = "stored",
 }: {
   initialUser: PublicUser;
   children: ReactNode;
+  dataMode?: "stored" | "demo";
 }) {
   const router = useRouter();
   const [user, setUser] = useState(initialUser);
@@ -46,6 +49,7 @@ export function PortalProvider({
   useEffect(() => setUser(initialUser), [initialUser]);
   useEffect(() => {
     const source = new EventSource("/api/stream");
+    source.addEventListener("collection", () => setStatus("live"));
     source.onmessage = (event) => {
       const data: LiveSnapshot & { recent?: LiveSnapshot[] } = JSON.parse(
         event.data,
@@ -130,6 +134,7 @@ export function PortalProvider({
   return (
     <Context.Provider
       value={{
+        dataMode,
         user,
         live,
         status,

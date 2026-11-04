@@ -118,7 +118,7 @@ Native dashboards use the same administration form, but `native_key` is restrict
 
 ## Data conventions
 
-Native market data and research remain simulated. The separate ENTSO-E Streamlit dashboard uses real data from its own PostgreSQL-backed service. Additional Streamlit and external HTML sources can be registered by an administrator. There are no Airflow or payment connections yet. Native historical values are deterministic, interval timestamps and date filters use UTC, and longer windows require daily or monthly resolution.
+Native market dashboards now read the shared PostgreSQL `energy` schema. The `/data` catalogue exposes provider coverage and native observations for electricity, storage, LNG and weather. Sources, forecast runs, missing data and revisions are preserved separately. See [DATA.md](DATA.md) for collector setup, local database configuration, licensing, validation and current limitations. `MARKET_DATA_MODE=demo` explicitly enables the legacy simulation. Research reports remain labelled demonstrations. The separate Streamlit dashboard retains its existing `public` tables.
 
 ## Validation
 

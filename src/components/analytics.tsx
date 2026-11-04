@@ -8,6 +8,7 @@ import {
   countries,
   formatNumber,
   generationMix,
+  marketAverage,
   withLiveSnapshot,
   type MarketRow,
 } from "@/lib/market";
@@ -208,6 +209,7 @@ export function Analytics({
   );
   const rows = data?.rows || [];
   const liveEnabled =
+    data?.mode === "demo" &&
     dashboardIsLive &&
     (country === "BG" || country === "RO") &&
     days === "1" &&
@@ -217,17 +219,31 @@ export function Analytics({
   const latest =
     rows.length && liveEnabled && live
       ? withLiveSnapshot(rows.at(-1)!, live)
-      : rows.at(-1);
-  const metric = rows.map((r) => Number(r[config.primary]));
+      : [...rows]
+          .reverse()
+          .find((row) => typeof row[config.primary] === "number");
+  const metric = rows
+    .map((r) => Number(r[config.primary] ?? NaN))
+    .filter(Number.isFinite);
   const avg = metric.length
     ? metric.reduce((a, b) => a + b, 0) / metric.length
-    : 0;
-  const min = metric.length ? Math.min(...metric) : 0,
-    max = metric.length ? Math.max(...metric) : 0;
+    : NaN;
+  const min = metric.length ? Math.min(...metric) : NaN,
+    max = metric.length ? Math.max(...metric) : NaN;
   const negatives = rows.filter((r) => r.price < 0);
-  const negativeHours =
-    rows.reduce((sum, r) => sum + r.negative, 0) *
-    (resolution === "quarter-hourly" ? 0.25 : 1);
+  const negativeHours = rows.reduce(
+    (sum, r) =>
+      sum +
+      Number(
+        r.negativeHours ??
+          (r.negative ?? 0) * (resolution === "quarter-hourly" ? 0.25 : 1),
+      ),
+    0,
+  );
+  const negativeIntervalCount =
+    data?.mode === "stored"
+      ? rows.reduce((s, r) => s + Number(r.negativeIntervals || 0), 0)
+      : negatives.length;
   const maxRow = rows.find((r) => Number(r[config.primary]) === max),
     minRow = rows.find((r) => Number(r[config.primary]) === min);
   const primaryLabel =
@@ -251,7 +267,9 @@ export function Analytics({
             : r),
         };
         Object.entries(data?.comparisons || {}).forEach(([code, values]) => {
-          item[code] = values[i]?.price;
+          item[code] = values.find(
+            (value) => value.timestamp === r.timestamp,
+          )?.price;
         });
         return item;
       }),
@@ -269,12 +287,12 @@ export function Analytics({
         ]
       : []),
   ];
-  const activeCurrent = latest ? Number(latest[config.primary]) : 0;
+  const activeCurrent = latest ? Number(latest[config.primary] ?? NaN) : NaN;
   const unit = config.unit;
   const change =
     metric.length > 1
       ? ((metric.at(-1)! - metric[0]) / Math.max(Math.abs(metric[0]), 1)) * 100
-      : 0;
+      : NaN;
   const controlsChanged = () => setTablePage(0);
   return (
     <>
@@ -450,16 +468,17 @@ export function Analytics({
             <span>
               <Flag code={country} />
               {countries.find((c) => c.code === country)?.name} bidding zone
-              <span>·</span>UTC<span>·</span>Simulated market data
+              <span>·</span>UTC<span>·</span>
+              {data?.source || "Stored market data"}
             </span>
             <span>
               <Badge
                 tone={liveEnabled && status === "live" ? "green" : "subtle"}
                 dot
               >
-                {liveEnabled ? "Live simulation" : "Historical"}
+                {data?.mode === "demo" ? "Simulation" : "Collected data"}
               </Badge>
-              {data &&
+              {data?.updatedAt &&
                 `Updated ${new Date(liveEnabled && live ? live.timestamp : data.updatedAt).toLocaleTimeString("en-GB", { timeZone: "UTC" })}`}
             </span>
           </div>
@@ -482,6 +501,16 @@ export function Analytics({
               </div>
               <Skeleton className="chart-skeleton" />
             </div>
+          ) : !metric.length ? (
+            <EmptyState
+              title="No reported values for this dataset"
+              description="This market and date range have no usable values for the selected metric. Check the data catalogue for provider coverage, or choose another date."
+              action={
+                <Link className="button" href="/data">
+                  Open data catalogue
+                </Link>
+              }
+            />
           ) : (
             <>
               <div className="analytics-kpis">
@@ -491,7 +520,7 @@ export function Analytics({
                   ["Minimum", min, unit],
                   ["Maximum", max, unit],
                   ["Period change", change, "%"],
-                  ["Negative intervals", negatives.length, "intervals"],
+                  ["Negative intervals", negativeIntervalCount, "intervals"],
                 ].map(([label, value, suffix]) => (
                   <div key={String(label)}>
                     <span>{label}</span>
@@ -573,20 +602,18 @@ export function Analytics({
                           }
                         >
                           {nativeKey === "cross-border" ? (
-                            <FlowNetwork
-                              flow={country === "BG" ? latest?.netFlow : 684}
-                            />
+                            <FlowNetwork flow={latest?.netFlow} />
                           ) : nativeKey === "energy-mix" ||
                             nativeKey === "renewables" ? (
                             <MixChart
-                              generation={(latest?.generation || 5840) / 1000}
+                              generation={(latest?.generation ?? NaN) / 1000}
                               mix={generationMix.map((m) => ({
                                 ...m,
                                 value: latest
                                   ? (Number(latest[m.name.toLowerCase()]) /
                                       latest.generation) *
                                     100
-                                  : m.value,
+                                  : 0,
                               }))}
                             />
                           ) : (
@@ -672,15 +699,14 @@ export function Analytics({
                         </Panel>
                         <Panel
                           title="Market statistics"
-                          subtitle="Selected period · simulated values"
+                          subtitle="Selected period · reported values"
                         >
                           <dl className="statistics-list">
                             <div>
                               <dt>Average generation</dt>
                               <dd>
                                 {formatNumber(
-                                  rows.reduce((s, r) => s + r.generation, 0) /
-                                    rows.length,
+                                  marketAverage(rows, "generation"),
                                   0,
                                 )}{" "}
                                 MW
@@ -690,8 +716,7 @@ export function Analytics({
                               <dt>Renewable share</dt>
                               <dd>
                                 {formatNumber(
-                                  rows.reduce((s, r) => s + r.renewable, 0) /
-                                    rows.length,
+                                  marketAverage(rows, "renewable"),
                                   1,
                                 )}
                                 %
@@ -700,33 +725,30 @@ export function Analytics({
                             <div>
                               <dt>Average imports</dt>
                               <dd>
-                                {formatNumber(
-                                  rows.reduce((s, r) => s + r.import, 0) /
-                                    rows.length,
-                                  0,
-                                )}{" "}
+                                {formatNumber(marketAverage(rows, "import"), 0)}{" "}
                                 MW
                               </dd>
                             </div>
                             <div>
                               <dt>Average exports</dt>
                               <dd>
-                                {formatNumber(
-                                  rows.reduce((s, r) => s + r.export, 0) /
-                                    rows.length,
-                                  0,
-                                )}{" "}
+                                {formatNumber(marketAverage(rows, "export"), 0)}{" "}
                                 MW
                               </dd>
                             </div>
                             <div>
                               <dt>Negative-price intervals</dt>
-                              <dd>{negatives.length}</dd>
+                              <dd>{negativeIntervalCount}</dd>
                             </div>
                             <div>
                               <dt>Data completeness</dt>
                               <dd className="mint">
-                                100% <Icon name="check" size={13} />
+                                {rows.length
+                                  ? Math.round(
+                                      (metric.length / rows.length) * 100,
+                                    )
+                                  : 0}
+                                % reported
                               </dd>
                             </div>
                           </dl>
@@ -798,7 +820,7 @@ export function Analytics({
                                     className={key === "price" ? "mint" : ""}
                                   >
                                     {formatNumber(
-                                      Number(r[key]),
+                                      Number(r[key] ?? NaN),
                                       suffix === "MW" || suffix === "MWh"
                                         ? 0
                                         : 2,

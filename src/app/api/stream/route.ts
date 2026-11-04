@@ -3,6 +3,7 @@ import { liveSnapshot } from "@/lib/market";
 import { accountRepository } from "@/lib/server/repository";
 import { cookies } from "next/headers";
 import { SESSION_COOKIE } from "@/lib/server/auth";
+import { query } from "@/lib/server/db";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export async function GET(request: Request) {
@@ -32,6 +33,17 @@ export async function GET(request: Request) {
             close();
             return;
           }
+          if (process.env.MARKET_DATA_MODE !== "demo") {
+            const result = await query<{ updated_at: Date | null }>(
+              "SELECT max(attempted_at) AS updated_at FROM energy.collection_chunks",
+            );
+            controller.enqueue(
+              encoder.encode(
+                `event: collection\ndata: ${JSON.stringify({ updatedAt: result.rows[0]?.updated_at, source: "Stored provider data" })}\n\n`,
+              ),
+            );
+            return;
+          }
           const snapshot = liveSnapshot();
           const payload = initial
             ? {
@@ -51,7 +63,10 @@ export async function GET(request: Request) {
           sending = false;
         }
       };
-      interval = setInterval(() => void send(), 5000);
+      interval = setInterval(
+        () => void send(),
+        process.env.MARKET_DATA_MODE === "demo" ? 5000 : 60_000,
+      );
       void send();
       if (request.signal.aborted) close();
       request.signal.addEventListener("abort", close, { once: true });

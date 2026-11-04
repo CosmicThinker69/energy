@@ -290,6 +290,10 @@ export function ChartLegend({
   );
 }
 export function PriceDistribution({ rows }: { rows: MarketRow[] }) {
+  rows = rows.filter(
+    (row) => typeof row.price === "number" && Number.isFinite(row.price),
+  );
+  if (!rows.length) return <p>No reported prices in this window.</p>;
   const min = Math.floor(Math.min(...rows.map((r) => r.price)) / 10) * 10;
   const max = Math.ceil(Math.max(...rows.map((r) => r.price)) / 10) * 10;
   const step = Math.max(10, Math.ceil((max - min) / 8 / 10) * 10);
@@ -363,7 +367,17 @@ const edges = [
   ["BG", "GR", 684],
   ["RS", "GR", 173],
 ] as const;
-export function FlowNetwork({ flow = 684 }: { flow?: number }) {
+export function FlowNetwork({ flow }: { flow?: number }) {
+  if (flow == null || !Number.isFinite(flow))
+    return <p>No reported flow for this interval.</p>;
+  return (
+    <p>
+      Net exports: {formatNumber(flow, 0)} MW. Border details are available in
+      the data catalogue.
+    </p>
+  );
+}
+export function DemoFlowNetwork({ flow = 684 }: { flow?: number }) {
   return (
     <div className="flow-network">
       <svg

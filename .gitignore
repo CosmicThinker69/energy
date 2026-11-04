@@ -9,3 +9,6 @@ artifacts/
 !.env.example
 
 *.zip
+.venv-data/
+__pycache__/
+*.pyc

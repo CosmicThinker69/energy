@@ -247,7 +247,7 @@ export function Explorer() {
               Complete dataset
             </Badge>
             <span className="muted small">
-              Deterministic simulated history · UTC
+              {data?.source || "Stored observations"} · UTC
             </span>
           </div>
           <section className="panel explorer-table-panel">
@@ -381,7 +381,7 @@ export function Explorer() {
                                   </span>
                                 ) : (
                                   formatNumber(
-                                    Number(r[c.key]),
+                                    Number(r[c.key] ?? NaN),
                                     c.unit === "MW"
                                       ? 0
                                       : c.key === "renewable"

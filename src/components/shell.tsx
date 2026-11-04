@@ -21,7 +21,7 @@ export function Shell({
 }) {
   const pathname = usePathname(),
     router = useRouter();
-  const { user, live, status, toast, requestUpgrade } = usePortal();
+  const { user, live, status, toast, requestUpgrade, dataMode } = usePortal();
   const navigation = [
     { label: "Overview", href: "/", icon: "overview" },
     {
@@ -31,6 +31,7 @@ export function Shell({
       count: String(dashboards.length),
     },
     { label: "Data Explorer", href: "/explorer", icon: "database" },
+    { label: "Data catalogue", href: "/data", icon: "database" },
     { label: "Reports", href: "/reports", icon: "report" },
     { label: "Ask TEMO", href: "/assistant", icon: "sparkles" },
   ];
@@ -195,7 +196,9 @@ export function Shell({
             <div className="header-live">
               <Badge dot tone={status === "live" ? "green" : "amber"}>
                 {status === "live"
-                  ? "Markets live"
+                  ? dataMode === "demo"
+                    ? "Markets live"
+                    : "Data connected"
                   : status === "connecting"
                     ? "Connecting"
                     : "Reconnecting"}
@@ -203,7 +206,9 @@ export function Shell({
               <small>
                 {live
                   ? `Updated ${new Date(live.timestamp).toLocaleTimeString("en-GB")}`
-                  : "Connecting to demo feed"}
+                  : dataMode === "demo"
+                    ? "Connecting to demo feed"
+                    : "Provider data · hourly collection"}
               </small>
             </div>
             <button
@@ -265,7 +270,11 @@ export function Shell({
           {children}
         </main>
         <footer className="app-footer">
-          <span>Native dashboard data is simulated</span>
+          <span>
+            {dataMode === "demo"
+              ? "Native dashboard data is simulated"
+              : "Stored provider observations · missing values remain gaps"}
+          </span>
           <span>Times in UTC</span>
         </footer>
       </div>
@@ -332,7 +341,7 @@ export function Shell({
             {read ? "All read" : "Mark all as read"}
           </button>
         </div>
-        {marketEvents.map((event, i) => (
+        {(dataMode === "demo" ? marketEvents : []).map((event, i) => (
           <div className="notification-row" key={event.title}>
             <span className={`event-icon ${event.level}`}>
               <Icon name={i === 0 ? "activity" : i === 1 ? "sun" : "arrows"} />
@@ -345,6 +354,7 @@ export function Shell({
             {!read && <span className="status-dot" />}
           </div>
         ))}
+        {dataMode === "stored" && <p>No market alerts have been generated.</p>}
       </Modal>
     </div>
   );

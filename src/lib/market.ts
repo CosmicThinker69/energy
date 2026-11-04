@@ -364,11 +364,21 @@ export function liveSnapshot(time = Date.now()): LiveSnapshot {
     sequence: Math.floor(t),
   };
 }
-export const formatNumber = (n: number, digits = 2) =>
-  new Intl.NumberFormat("en-GB", {
-    minimumFractionDigits: digits,
-    maximumFractionDigits: digits,
-  }).format(n);
+export const formatNumber = (n: number | null | undefined, digits = 2) =>
+  n == null || !Number.isFinite(n)
+    ? "—"
+    : new Intl.NumberFormat("en-GB", {
+        minimumFractionDigits: digits,
+        maximumFractionDigits: digits,
+      }).format(n);
+export function marketAverage(rows: MarketRow[], key: string) {
+  const values = rows
+    .map((row) => row[key])
+    .filter((v): v is number => typeof v === "number" && Number.isFinite(v));
+  return values.length
+    ? values.reduce((sum, v) => sum + v, 0) / values.length
+    : NaN;
+}
 export function toCsv(rows: Record<string, unknown>[]) {
   if (!rows.length) return "";
   const columns = Object.keys(rows[0]);

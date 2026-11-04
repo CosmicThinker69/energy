@@ -11,6 +11,7 @@
     "test:e2e": "playwright test",
     "db:migrate": "tsx scripts/migrate.ts",
     "db:seed": "tsx scripts/seed.ts",
+    "data:quality": "tsx --conditions=react-server scripts/data-quality.ts",
     "audit:ui": "node scripts/visual-audit.mjs",
     "format": "prettier --write src tests scripts *.ts *.json *.md",
     "format:check": "prettier --check src tests scripts *.ts *.json *.md"

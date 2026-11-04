@@ -1,16 +1,24 @@
 import { authorize, authorizeDashboardPlan } from "@/lib/server/auth";
 import { dashboardRepository } from "@/lib/server/dashboard-repository";
-import { countries, generateMarketRows, toCsv } from "@/lib/market";
+import {
+  countries,
+  generateMarketRows,
+  toCsv,
+  type MarketRow,
+} from "@/lib/market";
+import { storedMarketRows } from "@/lib/server/energy-repository";
 export async function GET(request: Request) {
   const p = new URL(request.url).searchParams;
   const id = p.get("dashboard") || "day-ahead";
   const dashboard =
-    id === "explorer" ? null : await dashboardRepository.getDashboardBySlug(id);
-  if (!dashboard && id !== "explorer")
+    id === "explorer" || id === "overview"
+      ? null
+      : await dashboardRepository.getDashboardBySlug(id);
+  if (!dashboard && id !== "explorer" && id !== "overview")
     return Response.json({ error: "Dashboard not found." }, { status: 404 });
   const { error } =
-    id === "explorer"
-      ? await authorize("explorer")
+    id === "explorer" || id === "overview"
+      ? await authorize(id)
       : await authorizeDashboardPlan(dashboard!.minimumPlan);
   if (error) return error;
   if (dashboard && dashboard.viewerType !== "native")
@@ -61,12 +69,23 @@ export async function GET(request: Request) {
     .split(",")
     .filter((c) => countries.some((m) => m.code === c) && c !== country)
     .slice(0, 7);
-  const rows = generateMarketRows({ country, days, resolution, date });
-  const comparisons = Object.fromEntries(
-    compare.map((c) => [
-      c,
-      generateMarketRows({ country: c, days, resolution, date }),
-    ]),
+  const demo = process.env.MARKET_DATA_MODE === "demo";
+  const primary = demo
+    ? null
+    : await storedMarketRows({ country, days, resolution, date });
+  const rows =
+    primary?.rows ||
+    (demo ? generateMarketRows({ country, days, resolution, date }) : []);
+  const comparisons: Record<string, MarketRow[]> = Object.fromEntries(
+    await Promise.all(
+      compare.map(async (c) => [
+        c,
+        demo
+          ? generateMarketRows({ country: c, days, resolution, date })
+          : (await storedMarketRows({ country: c, days, resolution, date }))
+              .rows,
+      ]),
+    ),
   );
   if (p.get("format") === "csv")
     return new Response(
@@ -83,8 +102,9 @@ export async function GET(request: Request) {
     {
       rows,
       comparisons,
-      updatedAt: new Date().toISOString(),
-      source: "Simulated market data",
+      updatedAt: demo ? new Date().toISOString() : primary?.updatedAt,
+      source: demo ? "Simulated market data" : primary?.source,
+      mode: demo ? "demo" : "stored",
       timezone: "UTC",
     },
     { headers: { "Cache-Control": "no-store" } },

@@ -4,8 +4,9 @@ import type { MarketRow } from "@/lib/market";
 export type MarketData = {
   rows: MarketRow[];
   comparisons: Record<string, MarketRow[]>;
-  updatedAt: string;
+  updatedAt: string | null;
   source: string;
+  mode?: "demo" | "stored";
 };
 export function useMarket(params: Record<string, string>, enabled = true) {
   const query = new URLSearchParams(params).toString();
@@ -13,6 +14,11 @@ export function useMarket(params: Record<string, string>, enabled = true) {
     [loading, setLoading] = useState(true),
     [error, setError] = useState(""),
     [revision, setRevision] = useState(0);
+  useEffect(() => {
+    if (!enabled) return;
+    const timer = setInterval(() => setRevision((v) => v + 1), 60_000);
+    return () => clearInterval(timer);
+  }, [enabled]);
   useEffect(() => {
     if (!enabled) {
       setLoading(false);
