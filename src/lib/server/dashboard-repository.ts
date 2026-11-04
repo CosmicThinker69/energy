@@ -4,6 +4,7 @@ import { db, query } from "./db";
 import {
   isNativeDashboardKey,
   nativeDashboardKeys,
+  availableNativeDashboardKeys,
   viewerTypes,
   type DashboardInput,
   type DashboardRecord,
@@ -134,6 +135,15 @@ export function validateDashboardInput(value: unknown): DashboardInput {
         `Native key must be one of: ${nativeDashboardKeys.join(", ")}.`,
       );
     }
+    if (
+      input.enabled === true &&
+      !availableNativeDashboardKeys.includes(
+        nativeKey as (typeof availableNativeDashboardKeys)[number],
+      )
+    )
+      throw new DashboardValidationError(
+        "This view is unavailable until its verified metrics are implemented.",
+      );
   } else if (!sourceUrl) {
     throw new DashboardValidationError(
       "Streamlit and External HTML dashboards require a valid HTTP or HTTPS URL without embedded credentials.",
@@ -183,8 +193,9 @@ export const dashboardRepository = {
     const result = await query<DashboardRow>(
       `SELECT ${DASHBOARD_COLUMNS}
        FROM portal.dashboards
-       WHERE enabled = true
+       WHERE enabled = true AND (viewer_type<>'native' OR native_key=ANY($1::text[]))
        ORDER BY sort_order, title, id`,
+      [availableNativeDashboardKeys],
     );
     return result.rows.map(dashboardRecord);
   },
@@ -193,9 +204,9 @@ export const dashboardRepository = {
     const result = await query<DashboardRow>(
       `SELECT ${DASHBOARD_COLUMNS}
        FROM portal.dashboards
-       WHERE slug = $1 AND ($2::boolean OR enabled = true)
+       WHERE slug = $1 AND ($2::boolean OR (enabled = true AND (viewer_type<>'native' OR native_key=ANY($3::text[]))))
        LIMIT 1`,
-      [slug, includeDisabled],
+      [slug, includeDisabled, availableNativeDashboardKeys],
     );
     return result.rows[0] ? dashboardRecord(result.rows[0]) : null;
   },
@@ -268,6 +279,22 @@ export const dashboardRepository = {
   async setDashboardEnabled(id: string, enabled: boolean, userId: string) {
     if (!UUID_PATTERN.test(id)) {
       throw new DashboardValidationError("Dashboard identifier is invalid.");
+    }
+    if (enabled) {
+      const current = await query<{ viewer_type: string; native_key: string }>(
+        "SELECT viewer_type,native_key FROM portal.dashboards WHERE id=$1",
+        [id],
+      );
+      if (
+        current.rows[0]?.viewer_type === "native" &&
+        !availableNativeDashboardKeys.includes(
+          current.rows[0]
+            .native_key as (typeof availableNativeDashboardKeys)[number],
+        )
+      )
+        throw new DashboardValidationError(
+          "This view is unavailable until its verified metrics are implemented.",
+        );
     }
     const result = await query<DashboardRow>(
       `UPDATE portal.dashboards

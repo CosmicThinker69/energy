@@ -24,13 +24,12 @@ test.afterAll(async () => {
 
 async function login(page: Page, plan = "basic") {
   await page.goto("/login");
-  await page
-    .getByRole("button", { name: new RegExp(`^${plan}$`, "i") })
-    .click();
+  await page.getByLabel("Work email").fill(`${plan}@demo.com`);
+  await page.getByLabel("Password", { exact: true }).fill("Demo123!");
   await page.getByRole("button", { name: "Sign in to workspace" }).click();
   await expect(page).toHaveURL("/");
   await expect(
-    page.getByRole("heading", { name: /Good .*Alex/ }),
+    page.getByRole("heading", { name: /Market overview, Alex/ }),
   ).toBeVisible();
 }
 async function loginAdmin(page: Page) {
@@ -48,7 +47,7 @@ test("unauthenticated routes and APIs require a session", async ({
   await expect(page).toHaveURL("/login");
   await page.goto("/dashboards/entsoe-energy");
   await expect(page).toHaveURL("/login");
-  expect((await request.get("/api/market?dashboard=balancing")).status()).toBe(
+  expect((await request.get("/api/market?dashboard=regional")).status()).toBe(
     401,
   );
   expect((await request.get("/api/stream")).status()).toBe(401);
@@ -59,19 +58,13 @@ test("basic account sees live data and remains locked out of higher tiers", asyn
   const errors: string[] = [];
   page.on("pageerror", (e) => errors.push(e.message));
   await login(page);
-  await expect(page.getByText("Markets live", { exact: true })).toBeVisible();
-  const firstUpdate = await page.locator(".header-live small").innerText();
-  await expect(async () => {
-    expect(await page.locator(".header-live small").innerText()).not.toBe(
-      firstUpdate,
-    );
-  }).toPass({ timeout: 12000 });
+  await expect(page.getByText("Data connected", { exact: true })).toBeVisible();
   await page.screenshot({
     path: "test-results/overview-desktop.png",
     fullPage: true,
   });
   await page.goto("/dashboards");
-  await expect(page.locator(".dashboard-card")).toHaveCount(11);
+  await expect(page.locator(".dashboard-card")).toHaveCount(9);
   await expect(page.locator(".dashboard-card").first()).toContainText(
     "ENTSO-E Energy",
   );
@@ -106,15 +99,15 @@ test("basic account sees live data and remains locked out of higher tiers", asyn
     page
       .locator(".dashboard-card")
       .filter({ hasText: "ENTSO-E Energy" })
-      .getByText("LIVE DATA", { exact: true }),
+      .getByText("ENTSO-E", { exact: true }),
   ).toBeVisible();
   await page.screenshot({
     path: "test-results/dashboard-library-desktop.png",
     fullPage: true,
   });
-  await expect(page.locator(".locked-action")).toHaveCount(7);
+  await expect(page.locator(".locked-action")).toHaveCount(5);
   expect(
-    (await page.request.get("/api/market?dashboard=balancing")).status(),
+    (await page.request.get("/api/market?dashboard=regional")).status(),
   ).toBe(403);
   await page
     .getByRole("button", { name: "Requires Professional" })
@@ -124,11 +117,11 @@ test("basic account sees live data and remains locked out of higher tiers", asyn
     page.getByRole("button", { name: "Contact sales", exact: true }),
   ).toBeVisible();
   await page.getByRole("button", { name: "Keep exploring" }).click();
-  await expect(page.locator(".locked-action")).toHaveCount(7);
+  await expect(page.locator(".locked-action")).toHaveCount(5);
   expect(
-    (await page.request.get("/api/market?dashboard=balancing")).status(),
+    (await page.request.get("/api/market?dashboard=regional")).status(),
   ).toBe(403);
-  await page.goto("/dashboards/balancing");
+  await page.goto("/dashboards/regional");
   await expect(
     page.locator(".sidebar").getByRole("link", { name: /Market dashboards/ }),
   ).toHaveAttribute("aria-current", "page");
@@ -140,9 +133,9 @@ test("basic account sees live data and remains locked out of higher tiers", asyn
   await expect(
     page.getByRole("heading", { name: "Access required" }),
   ).toBeVisible();
-  await page.goto("/reports");
+  const removedReports = await page.goto("/reports");
   await expect(
-    page.getByRole("heading", { name: "Access required" }),
+    page.getByRole("heading", { name: "This page is off the grid." }),
   ).toBeVisible();
   await page.goto("/settings");
   await expect(
@@ -207,7 +200,7 @@ test("admin can add, edit, disable, reorder, and delete a dynamic Streamlit dash
 
   await page.goto("/dashboards");
   await expect(
-    page.getByRole("link", { name: "Market dashboards 12" }),
+    page.getByRole("link", { name: "Market dashboards 10" }),
   ).toBeVisible();
   await expect(
     page.locator(".dashboard-card").filter({ hasText: title }),
@@ -245,7 +238,7 @@ test("admin can add, edit, disable, reorder, and delete a dynamic Streamlit dash
   await expect(page.getByRole("status")).toContainText("Dashboard disabled");
   await page.goto("/dashboards");
   await expect(
-    page.getByRole("link", { name: "Market dashboards 11" }),
+    page.getByRole("link", { name: "Market dashboards 9" }),
   ).toBeVisible();
   await expect(
     page.locator(".dashboard-card").filter({ hasText: title }),
@@ -314,16 +307,14 @@ test("all analytics pages load and filters, tables, and CSV work", async ({
     "day-ahead",
     "energy-mix",
     "regional",
-    "balancing",
     "negative-prices",
     "renewables",
     "cross-border",
     "historical",
     "country",
-    "intelligence",
   ];
   for (const id of ids) {
-    await page.goto("/dashboards/" + id);
+    await page.goto("/dashboards/" + id + "?date=2026-11-03");
     await expect(page.locator(".analytics-kpis:visible")).toBeVisible();
     await expect(page.locator("tbody tr").first()).toBeVisible();
     await expect(
@@ -332,7 +323,7 @@ test("all analytics pages load and filters, tables, and CSV work", async ({
       }),
     ).toHaveCount(0);
   }
-  await page.goto("/dashboards/day-ahead");
+  await page.goto("/dashboards/day-ahead?date=2026-11-03");
   await page
     .getByRole("combobox", { name: "Market", exact: true })
     .selectOption("RO");
@@ -389,9 +380,9 @@ test("explorer filters, sorting, comparisons, pagination, and exports work", asy
   expect((await page.request.get("/api/reports/weekly-outlook")).status()).toBe(
     403,
   );
-  await page.goto("/reports");
+  const removedReports = await page.goto("/reports");
   await expect(
-    page.getByRole("heading", { name: "Access required" }),
+    page.getByRole("heading", { name: "This page is off the grid." }),
   ).toBeVisible();
 });
 test("registration starts on Basic and profile changes persist", async ({
@@ -451,7 +442,7 @@ test("mobile navigation, search, reports, and key pages fit viewport", async ({
     "/dashboards/day-ahead",
     "/explorer",
     "/settings",
-    "/reports",
+    "/data",
     "/help",
   ]) {
     await page.goto(route);
@@ -473,7 +464,7 @@ test("mobile navigation, search, reports, and key pages fit viewport", async ({
     path: "test-results/navigation-mobile.png",
     fullPage: true,
   });
-  await page.getByRole("link", { name: "Market dashboards 11" }).click();
+  await page.getByRole("link", { name: "Market dashboards 9" }).click();
   await expect(page).toHaveURL("/dashboards");
   await page.getByRole("button", { name: "Search workspace" }).click();
   await page
@@ -481,10 +472,7 @@ test("mobile navigation, search, reports, and key pages fit viewport", async ({
     .fill("negative");
   await page.getByRole("button", { name: /Negative Price Analysis/i }).click();
   await expect(page).toHaveURL("/dashboards/negative-prices");
-  await page.goto("/reports");
-  await page
-    .getByRole("button", { name: "Read report", exact: true })
-    .first()
-    .click();
-  await expect(page.locator(".report-reader")).toBeVisible();
+  await expect(
+    page.getByRole("link", { name: "Reports", exact: true }),
+  ).toHaveCount(0);
 });

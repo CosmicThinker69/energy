@@ -9,15 +9,10 @@ import {
 } from "react";
 import { useRouter } from "next/navigation";
 import { type Plan, type PublicUser, planName } from "@/lib/config";
-import { type LiveSnapshot } from "@/lib/market";
 import { Icon, Modal } from "./ui";
-type FeedEntry = { time: string; text: string; id: number };
 type PortalContext = {
-  dataMode: "stored" | "demo";
   user: PublicUser;
-  live: LiveSnapshot | null;
   status: "connecting" | "live" | "reconnecting";
-  feed: FeedEntry[];
   updateUser: (u: PublicUser) => void;
   toast: (text: string) => void;
   requestUpgrade: (plan: Plan, title?: string) => void;
@@ -31,17 +26,13 @@ export function usePortal() {
 export function PortalProvider({
   initialUser,
   children,
-  dataMode = "stored",
 }: {
   initialUser: PublicUser;
   children: ReactNode;
-  dataMode?: "stored" | "demo";
 }) {
   const router = useRouter();
   const [user, setUser] = useState(initialUser);
-  const [live, setLive] = useState<LiveSnapshot | null>(null);
   const [status, setStatus] = useState<PortalContext["status"]>("connecting");
-  const [feed, setFeed] = useState<FeedEntry[]>([]);
   const [message, setMessage] = useState("");
   const [upgrade, setUpgrade] = useState<{ plan: Plan; title: string } | null>(
     null,
@@ -50,31 +41,6 @@ export function PortalProvider({
   useEffect(() => {
     const source = new EventSource("/api/stream");
     source.addEventListener("collection", () => setStatus("live"));
-    source.onmessage = (event) => {
-      const data: LiveSnapshot & { recent?: LiveSnapshot[] } = JSON.parse(
-        event.data,
-      );
-      setLive(data);
-      setStatus("live");
-      const entry = (snapshot: LiveSnapshot): FeedEntry => ({
-        time: snapshot.timestamp,
-        id: snapshot.sequence,
-        text: [
-          `BG price updated to €${snapshot.price.toFixed(2)}`,
-          `Solar generation updated to ${snapshot.solar.toLocaleString("en-GB")} MW`,
-          `RO price updated to €${snapshot.roPrice.toFixed(2)}`,
-          `Net exports updated to ${snapshot.flow} MW`,
-        ][snapshot.sequence % 4],
-      });
-      setFeed((old) =>
-        [entry(data), ...(old.length ? old : (data.recent || []).map(entry))]
-          .filter(
-            (item, index, items) =>
-              items.findIndex((v) => v.id === item.id) === index,
-          )
-          .slice(0, 8),
-      );
-    };
     source.onerror = () => {
       setStatus("reconnecting");
       fetch("/api/auth/session")
@@ -134,11 +100,8 @@ export function PortalProvider({
   return (
     <Context.Provider
       value={{
-        dataMode,
         user,
-        live,
         status,
-        feed,
         updateUser,
         toast: setMessage,
         requestUpgrade: (plan, title = "This dashboard") => {

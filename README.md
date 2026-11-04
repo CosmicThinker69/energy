@@ -94,7 +94,7 @@ Do not run `db:seed` as part of normal production startup.
 | Authentication/authorization | `src/lib/server/auth.ts`                       | Cookie sessions and reusable server checks      |
 | Password-reset delivery      | `src/lib/server/mail.ts`                       | Provider-independent mail boundary              |
 | Database migrations and seed | `migrations/`, `scripts/`                      | Repeatable schema setup and explicit test data  |
-| Deterministic market model   | `src/lib/market.ts`                            | Simulated energy-market data                    |
+| Market types and formatting  | `src/lib/market.ts`                            | Shared market metadata and data formatting      |
 | Dashboard viewer             | `src/components/dashboard-viewer.tsx`          | Native and configured Streamlit viewer boundary |
 
 The initial seed stores the configured `STREAMLIT_ENTSOE_URL` in `portal.dashboards`. Streamlit dashboards use `embed=true`; portal authentication and current-plan checks run before an iframe is rendered.
@@ -120,7 +120,7 @@ Native dashboards use the same administration form, but `native_key` is restrict
 
 The hosted portal can read the complete local market dataset through an authenticated outbound agent. See [LOCAL-DATA-ACCESS.md](LOCAL-DATA-ACCESS.md) for the active hybrid hosting configuration and Windows task management.
 
-Native market dashboards now read the shared PostgreSQL `energy` schema. The `/data` catalogue exposes provider coverage and native observations for electricity, storage, LNG and weather. Sources, forecast runs, missing data and revisions are preserved separately. See [DATA.md](DATA.md) for collector setup, local database configuration, licensing, validation and current limitations. `MARKET_DATA_MODE=demo` explicitly enables the legacy simulation. Research reports remain labelled demonstrations. The separate Streamlit dashboard retains its existing `public` tables.
+Native market dashboards now read the shared PostgreSQL `energy` schema. The `/data` catalogue exposes provider coverage and native observations for electricity, storage, LNG and weather. Sources, forecast runs, missing data and revisions are preserved separately. See [DATA.md](DATA.md) for collector setup, local database configuration, licensing, validation and current limitations. Synthetic market data and research reports have been removed. Unsupported analytics views remain hidden until verified metrics are implemented. The separate Streamlit dashboard retains its existing `public` tables.
 
 ## Validation
 

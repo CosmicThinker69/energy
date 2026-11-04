@@ -1,5 +1,4 @@
 import { authorize } from "@/lib/server/auth";
-import { liveSnapshot } from "@/lib/market";
 import { accountRepository } from "@/lib/server/repository";
 import { cookies } from "next/headers";
 import { SESSION_COOKIE } from "@/lib/server/auth";
@@ -15,7 +14,6 @@ export async function GET(request: Request) {
   const stream = new ReadableStream({
     start(controller) {
       let closed = false;
-      let initial = true;
       let sending = false;
       const close = () => {
         if (closed) return;
@@ -33,38 +31,19 @@ export async function GET(request: Request) {
             close();
             return;
           }
-          if (process.env.MARKET_DATA_MODE !== "demo") {
-            const result = await readCollectionStatus();
-            controller.enqueue(
-              encoder.encode(
-                `event: collection\ndata: ${JSON.stringify(result)}\n\n`,
-              ),
-            );
-            return;
-          }
-          const snapshot = liveSnapshot();
-          const payload = initial
-            ? {
-                ...snapshot,
-                recent: Array.from({ length: 5 }, (_, i) =>
-                  liveSnapshot(Date.parse(snapshot.timestamp) - (i + 1) * 5000),
-                ),
-              }
-            : snapshot;
+          const result = await readCollectionStatus();
           controller.enqueue(
-            encoder.encode(`data: ${JSON.stringify(payload)}\n\n`),
+            encoder.encode(
+              `event: collection\ndata: ${JSON.stringify(result)}\n\n`,
+            ),
           );
-          initial = false;
         } catch {
           close();
         } finally {
           sending = false;
         }
       };
-      interval = setInterval(
-        () => void send(),
-        process.env.MARKET_DATA_MODE === "demo" ? 5000 : 60_000,
-      );
+      interval = setInterval(() => void send(), 60_000);
       void send();
       if (request.signal.aborted) close();
       request.signal.addEventListener("abort", close, { once: true });

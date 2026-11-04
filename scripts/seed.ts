@@ -22,7 +22,7 @@ const dashboards = [
       process.env.STREAMLIT_ENTSOE_URL ||
       "https://energy-streamlit-production-d2ea.up.railway.app/",
     minimumPlan: "basic",
-    badge: "LIVE DATA",
+    badge: "ENTSO-E",
     enabled: true,
     sortOrder: 0,
   },
@@ -76,7 +76,7 @@ const dashboards = [
     sourceUrl: null,
     minimumPlan: "professional",
     badge: null,
-    enabled: true,
+    enabled: false,
     sortOrder: 40,
   },
   {
@@ -158,7 +158,7 @@ const dashboards = [
     sourceUrl: null,
     minimumPlan: "premium",
     badge: null,
-    enabled: true,
+    enabled: false,
     sortOrder: 100,
   },
 ] as const;

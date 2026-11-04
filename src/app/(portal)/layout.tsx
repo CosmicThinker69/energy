@@ -11,10 +11,7 @@ export default async function PortalLayout({
   const user = await requireUser();
   const dashboards = await dashboardRepository.getEnabledDashboards();
   return (
-    <PortalProvider
-      initialUser={user}
-      dataMode={process.env.MARKET_DATA_MODE === "demo" ? "demo" : "stored"}
-    >
+    <PortalProvider initialUser={user}>
       <Shell dashboards={dashboards}>{children}</Shell>
     </PortalProvider>
   );

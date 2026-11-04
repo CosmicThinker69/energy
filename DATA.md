@@ -2,7 +2,7 @@
 
 ## What is implemented
 
-The native overview, dashboards and Data Explorer read PostgreSQL `energy` observations by default. `MARKET_DATA_MODE=demo` explicitly enables the retained demonstration screens. Research reports are still labelled demonstrations; Ask TEMO's document library remains a separate system.
+The overview, implemented dashboards and Data Explorer read published PostgreSQL `energy` observations. There is no synthetic-data mode. Reports and unsupported analytics views are hidden until backed by verified implementations; Ask TEMO's uploaded-document library remains a separate system.
 
 Open `/data` to inspect coverage, filter sources/datasets/areas, browse native observations and export pages. `/api/data/status` exposes coverage to signed-in users; `/api/data` and `/api/data/quality` require Professional or Premium access. Provider credentials, raw response bodies and database credentials are never exposed by these routes.
 
@@ -96,4 +96,4 @@ npm run build
 npx playwright test tests/e2e/data.spec.ts tests/e2e/api.spec.ts
 ```
 
-The old UI browser suite describes the explicitly simulated demo, so run that suite with `MARKET_DATA_MODE=demo`. The new data suite exercises the stored mode and requires imported historical BG prices and GIE storage. Unit/database tests check duration weighting, negative prices, missing-quarter-hour handling, native curve parsing, pumping separation, gas-day DST, idempotence and revision archiving.
+Browser tests exercise the real-data portal and require imported historical BG prices and GIE storage. Unit/database tests check duration weighting, negative prices, missing-quarter-hour handling, native curve parsing, pumping separation, gas-day DST, idempotence and revision archiving.

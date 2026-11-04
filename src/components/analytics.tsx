@@ -9,7 +9,6 @@ import {
   formatNumber,
   generationMix,
   marketAverage,
-  withLiveSnapshot,
   type MarketRow,
 } from "@/lib/market";
 import {
@@ -63,7 +62,7 @@ function analyticsConfig(id: string): {
 } {
   const priceColumns: [string, string, string][] = [
     ["price", "Day-ahead", "€/MWh"],
-    ["balancing", "Balancing", "€/MWh"],
+    ["load", "Demand", "MW"],
     ["generation", "Generation", "MW"],
     ["renewable", "Renewables", "%"],
   ];
@@ -94,24 +93,6 @@ function analyticsConfig(id: string): {
         ["generation", "Total", "MW"],
       ],
     };
-  if (id === "balancing")
-    return {
-      series: [
-        { key: "upward", label: "Upward activation", color: green },
-        { key: "downward", label: "Downward activation", color: cyan },
-        { key: "balancing", label: "Settlement price", color: violet },
-      ],
-      kind: "line",
-      unit: "€/MWh",
-      title: "Balancing energy prices",
-      primary: "balancing",
-      columns: [
-        ["upward", "Upward", "€/MWh"],
-        ["downward", "Downward", "€/MWh"],
-        ["balancing", "Settlement", "€/MWh"],
-        ["volume", "Activated volume", "MWh"],
-      ],
-    };
   if (id === "cross-border")
     return {
       series: [
@@ -128,23 +109,6 @@ function analyticsConfig(id: string): {
         ["import", "Imports", "MW"],
         ["netFlow", "Net exports", "MW"],
         ["price", "Market price", "€/MWh"],
-      ],
-    };
-  if (id === "intelligence")
-    return {
-      series: [
-        { key: "price", label: "Market price", color: green },
-        { key: "capture", label: "Renewable capture price", color: cyan },
-      ],
-      kind: "line",
-      unit: "€/MWh",
-      title: "Market price and renewable capture",
-      primary: "capture",
-      columns: [
-        ["price", "Market price", "€/MWh"],
-        ["capture", "Capture price", "€/MWh"],
-        ["volatility", "Volatility", "%"],
-        ["renewable", "Renewables", "%"],
       ],
     };
   return {
@@ -166,13 +130,11 @@ function analyticsConfig(id: string): {
 export function Analytics({
   dashboard,
   nativeKey,
-  live: dashboardIsLive,
 }: {
   dashboard: DashboardRecord;
   nativeKey: NativeDashboardKey;
-  live: boolean;
 }) {
-  const { user, live, status, toast } = usePortal(),
+  const { user, status, toast } = usePortal(),
     search = useSearchParams();
   const [country, setCountry] = useState(
     nativeKey === "country"
@@ -208,63 +170,65 @@ export function Analytics({
     allowed,
   );
   const rows = data?.rows || [];
-  const liveEnabled =
-    data?.mode === "demo" &&
-    dashboardIsLive &&
-    (country === "BG" || country === "RO") &&
-    days === "1" &&
-    date === new Date().toISOString().slice(0, 10) &&
-    resolution !== "daily" &&
-    resolution !== "monthly";
-  const latest =
-    rows.length && liveEnabled && live
-      ? withLiveSnapshot(rows.at(-1)!, live)
-      : [...rows]
-          .reverse()
-          .find((row) => typeof row[config.primary] === "number");
+  const latest = [...rows]
+    .reverse()
+    .find((row) => typeof row[config.primary] === "number");
   const metric = rows
     .map((r) => Number(r[config.primary] ?? NaN))
     .filter(Number.isFinite);
-  const avg = metric.length
-    ? metric.reduce((a, b) => a + b, 0) / metric.length
-    : NaN;
+  const avg = marketAverage(rows, config.primary);
   const min = metric.length ? Math.min(...metric) : NaN,
     max = metric.length ? Math.max(...metric) : NaN;
-  const negatives = rows.filter((r) => r.price < 0);
-  const negativeHours = rows.reduce(
-    (sum, r) =>
-      sum +
-      Number(
-        r.negativeHours ??
-          (r.negative ?? 0) * (resolution === "quarter-hourly" ? 0.25 : 1),
-      ),
-    0,
+  const priceIntervals = rows.filter(
+    (row) => typeof row.negativeIntervals === "number",
   );
-  const negativeIntervalCount =
-    data?.mode === "stored"
-      ? rows.reduce((s, r) => s + Number(r.negativeIntervals || 0), 0)
-      : negatives.length;
-  const maxRow = rows.find((r) => Number(r[config.primary]) === max),
-    minRow = rows.find((r) => Number(r[config.primary]) === min);
+  const negativeHours = priceIntervals.length
+    ? priceIntervals.reduce(
+        (sum, row) => sum + Number(row.negativeHours ?? 0),
+        0,
+      )
+    : NaN;
+  const negativeIntervalCount = priceIntervals.length
+    ? priceIntervals.reduce(
+        (sum, row) => sum + Number(row.negativeIntervals || 0),
+        0,
+      )
+    : NaN;
+  const maxRow = rows.find(
+      (r) => typeof r[config.primary] === "number" && r[config.primary] === max,
+    ),
+    minRow = rows.find(
+      (r) => typeof r[config.primary] === "number" && r[config.primary] === min,
+    );
+  const bucketEnd = new Date(date + "T00:00:00Z");
+  bucketEnd.setUTCDate(bucketEnd.getUTCDate() + 1);
+  const bucketStart = new Date(bucketEnd.getTime() - Number(days) * 86400000);
+  const lastBucket = new Date(bucketEnd.getTime() - 1);
+  const expectedBuckets =
+    resolution === "monthly"
+      ? (lastBucket.getUTCFullYear() - bucketStart.getUTCFullYear()) * 12 +
+        lastBucket.getUTCMonth() -
+        bucketStart.getUTCMonth() +
+        1
+      : Number(days) *
+        (resolution === "daily"
+          ? 1
+          : resolution === "quarter-hourly"
+            ? 96
+            : 24);
   const primaryLabel =
     nativeKey === "energy-mix"
-      ? "Total generation"
+      ? "Reported generation"
       : nativeKey === "renewables"
         ? "Renewable output"
-        : nativeKey === "balancing"
-          ? "Settlement price"
-          : nativeKey === "cross-border"
-            ? "Net exports"
-            : nativeKey === "intelligence"
-              ? "Capture price"
-              : "Latest interval";
+        : nativeKey === "cross-border"
+          ? "Net exports"
+          : "Latest interval";
   const chartData = useMemo(
     () =>
-      rows.map((r, i) => {
+      rows.map((r) => {
         const item: Record<string, unknown> = {
-          ...(liveEnabled && live && i === rows.length - 1
-            ? withLiveSnapshot(r, live)
-            : r),
+          ...r,
         };
         Object.entries(data?.comparisons || {}).forEach(([code, values]) => {
           item[code] = values.find(
@@ -273,7 +237,7 @@ export function Analytics({
         });
         return item;
       }),
-    [rows, data?.comparisons, live, liveEnabled, country, config.primary],
+    [rows, data?.comparisons, country, config.primary],
   );
   const series = [
     ...config.series,
@@ -290,8 +254,8 @@ export function Analytics({
   const activeCurrent = latest ? Number(latest[config.primary] ?? NaN) : NaN;
   const unit = config.unit;
   const change =
-    metric.length > 1
-      ? ((metric.at(-1)! - metric[0]) / Math.max(Math.abs(metric[0]), 1)) * 100
+    metric.length > 1 && metric[0] !== 0
+      ? ((metric.at(-1)! - metric[0]) / Math.abs(metric[0])) * 100
       : NaN;
   const controlsChanged = () => setTablePage(0);
   return (
@@ -472,14 +436,11 @@ export function Analytics({
               {data?.source || "Stored market data"}
             </span>
             <span>
-              <Badge
-                tone={liveEnabled && status === "live" ? "green" : "subtle"}
-                dot
-              >
-                {data?.mode === "demo" ? "Simulation" : "Collected data"}
+              <Badge tone={status === "live" ? "green" : "subtle"} dot>
+                Collected data
               </Badge>
               {data?.updatedAt &&
-                `Updated ${new Date(liveEnabled && live ? live.timestamp : data.updatedAt).toLocaleTimeString("en-GB", { timeZone: "UTC" })}`}
+                `Updated ${new Date(data.updatedAt).toLocaleTimeString("en-GB", { timeZone: "UTC" })}`}
             </span>
           </div>
           {error ? (
@@ -520,7 +481,11 @@ export function Analytics({
                   ["Minimum", min, unit],
                   ["Maximum", max, unit],
                   ["Period change", change, "%"],
-                  ["Negative intervals", negativeIntervalCount, "intervals"],
+                  [
+                    "Negative price intervals",
+                    negativeIntervalCount,
+                    "intervals",
+                  ],
                 ].map(([label, value, suffix]) => (
                   <div key={String(label)}>
                     <span>{label}</span>
@@ -609,11 +574,15 @@ export function Analytics({
                               generation={(latest?.generation ?? NaN) / 1000}
                               mix={generationMix.map((m) => ({
                                 ...m,
-                                value: latest
-                                  ? (Number(latest[m.name.toLowerCase()]) /
-                                      latest.generation) *
-                                    100
-                                  : 0,
+                                value:
+                                  latest &&
+                                  typeof latest[m.name.toLowerCase()] ===
+                                    "number" &&
+                                  Number(latest.generation) > 0
+                                    ? (Number(latest[m.name.toLowerCase()]) /
+                                        Number(latest.generation)) *
+                                      100
+                                    : null,
                               }))}
                             />
                           ) : (
@@ -690,7 +659,7 @@ export function Analytics({
                                 </strong>
                                 <small>
                                   {nativeKey === "negative-prices"
-                                    ? `${negatives.length} of ${rows.length} intervals below zero`
+                                    ? `${formatNumber(negativeIntervalCount, 0)} native price intervals below zero`
                                     : "Difference between the high and low"}
                                 </small>
                               </div>
@@ -738,14 +707,14 @@ export function Analytics({
                             </div>
                             <div>
                               <dt>Negative-price intervals</dt>
-                              <dd>{negativeIntervalCount}</dd>
+                              <dd>{formatNumber(negativeIntervalCount, 0)}</dd>
                             </div>
                             <div>
-                              <dt>Data completeness</dt>
+                              <dt>Selected metric coverage</dt>
                               <dd className="mint">
-                                {rows.length
+                                {expectedBuckets
                                   ? Math.round(
-                                      (metric.length / rows.length) * 100,
+                                      (metric.length / expectedBuckets) * 100,
                                     )
                                   : 0}
                                 % reported

@@ -171,48 +171,70 @@ export function Sparkline({
   values,
   color = "var(--mint)",
 }: {
-  values: number[];
+  values: (number | null)[];
   color?: string;
 }) {
-  const min = Math.min(...values),
-    max = Math.max(...values);
-  const points = values
-    .map(
-      (v, i) =>
-        `${(i / (values.length - 1)) * 105},${34 - ((v - min) / (max - min || 1)) * 28}`,
-    )
-    .join(" ");
+  const reported = values.filter(
+    (value): value is number =>
+      typeof value === "number" && Number.isFinite(value),
+  );
+  if (!reported.length) return null;
+  const min = Math.min(...reported),
+    max = Math.max(...reported);
+  const segments: string[][] = [[]];
+  values.forEach((value, i) => {
+    if (value === null || !Number.isFinite(value)) {
+      if (segments.at(-1)!.length) segments.push([]);
+      return;
+    }
+    segments
+      .at(-1)!
+      .push(
+        `${(i / Math.max(1, values.length - 1)) * 105},${34 - ((value - min) / (max - min || 1)) * 28}`,
+      );
+  });
   return (
     <svg className="sparkline" viewBox="0 0 108 40" aria-hidden="true">
-      <polyline
-        points={points}
-        fill="none"
-        stroke={color}
-        strokeWidth="1.7"
-        strokeLinejoin="round"
-        strokeLinecap="round"
-      />
+      {segments
+        .filter((segment) => segment.length)
+        .map((segment, i) => (
+          <polyline
+            key={i}
+            points={segment.join(" ")}
+            fill="none"
+            stroke={color}
+            strokeWidth="1.7"
+            strokeLinejoin="round"
+            strokeLinecap="round"
+          />
+        ))}
     </svg>
   );
 }
 export function MixChart({
-  generation = 5.84,
-  mix = generationMix,
+  generation,
+  mix,
 }: {
-  generation?: number;
-  mix?: typeof generationMix;
+  generation: number;
+  mix: { name: string; color: string; value: number | null }[];
 }) {
+  const reported = mix.filter(
+    (item): item is typeof item & { value: number } =>
+      item.value !== null && Number.isFinite(item.value),
+  );
+  if (!Number.isFinite(generation) || !reported.length)
+    return <p>No complete generation total is available for this interval.</p>;
   return (
     <div className="mix-chart-wrap">
       <div
         className="donut-container"
         role="img"
-        aria-label={`Generation mix: ${mix.map((m) => `${m.name} ${m.value}%`).join(", ")}`}
+        aria-label={`Reported generation mix: ${reported.map((m) => `${m.name} ${m.value.toFixed(1)}%`).join(", ")}`}
       >
         <ResponsiveContainer width="100%" height="100%" minWidth={0}>
           <PieChart>
             <Pie
-              data={mix}
+              data={reported}
               dataKey="value"
               nameKey="name"
               innerRadius={66}
@@ -223,7 +245,7 @@ export function MixChart({
               stroke="none"
               isAnimationActive={false}
             >
-              {mix.map((item) => (
+              {reported.map((item) => (
                 <Cell key={item.name} fill={item.color} />
               ))}
             </Pie>
@@ -234,12 +256,12 @@ export function MixChart({
           </PieChart>
         </ResponsiveContainer>
         <div className="donut-center">
-          <span>Total generation</span>
+          <span>Reported generation</span>
           <strong>
             {generation.toFixed(2)}
             <small> GW</small>
           </strong>
-          <span className="mint">Seven technologies</span>
+          <span className="mint">{reported.length} reported groups</span>
         </div>
       </div>
       <div className="mix-legend">
@@ -248,7 +270,7 @@ export function MixChart({
             <span className="legend-dot" style={{ background: item.color }} />
             <span>{item.name}</span>
             <strong>
-              {item.value.toFixed(1)}
+              {formatNumber(item.value, 1)}
               <small>%</small>
             </strong>
           </div>
@@ -290,19 +312,22 @@ export function ChartLegend({
   );
 }
 export function PriceDistribution({ rows }: { rows: MarketRow[] }) {
-  rows = rows.filter(
-    (row) => typeof row.price === "number" && Number.isFinite(row.price),
-  );
-  if (!rows.length) return <p>No reported prices in this window.</p>;
-  const min = Math.floor(Math.min(...rows.map((r) => r.price)) / 10) * 10;
-  const max = Math.ceil(Math.max(...rows.map((r) => r.price)) / 10) * 10;
+  const prices = rows
+    .map((row) => row.price)
+    .filter(
+      (value): value is number =>
+        typeof value === "number" && Number.isFinite(value),
+    );
+  if (!prices.length) return <p>No reported prices in this window.</p>;
+  const min = Math.floor(Math.min(...prices) / 10) * 10;
+  const max = Math.ceil(Math.max(...prices) / 10) * 10;
   const step = Math.max(10, Math.ceil((max - min) / 8 / 10) * 10);
   const data = Array.from(
     { length: Math.max(1, Math.ceil((max - min + 1) / step)) },
     (_, i) => ({
       label: `${min + i * step}`,
-      count: rows.filter(
-        (r) => r.price >= min + i * step && r.price < min + (i + 1) * step,
+      count: prices.filter(
+        (price) => price >= min + i * step && price < min + (i + 1) * step,
       ).length,
     }),
   );
@@ -346,28 +371,7 @@ export function PriceDistribution({ rows }: { rows: MarketRow[] }) {
     </div>
   );
 }
-const nodes = [
-  { code: "CZ", x: 75, y: 39 },
-  { code: "PL", x: 232, y: 30 },
-  { code: "SK", x: 161, y: 87 },
-  { code: "HU", x: 130, y: 151 },
-  { code: "RO", x: 290, y: 146 },
-  { code: "RS", x: 127, y: 226 },
-  { code: "BG", x: 272, y: 239 },
-  { code: "GR", x: 202, y: 309 },
-];
-const edges = [
-  ["CZ", "SK", 240],
-  ["PL", "SK", 186],
-  ["SK", "HU", 420],
-  ["HU", "RO", 376],
-  ["HU", "RS", 284],
-  ["RO", "BG", 412],
-  ["BG", "RS", 318],
-  ["BG", "GR", 684],
-  ["RS", "GR", 173],
-] as const;
-export function FlowNetwork({ flow }: { flow?: number }) {
+export function FlowNetwork({ flow }: { flow?: number | null }) {
   if (flow == null || !Number.isFinite(flow))
     return <p>No reported flow for this interval.</p>;
   return (
@@ -375,108 +379,6 @@ export function FlowNetwork({ flow }: { flow?: number }) {
       Net exports: {formatNumber(flow, 0)} MW. Border details are available in
       the data catalogue.
     </p>
-  );
-}
-export function DemoFlowNetwork({ flow = 684 }: { flow?: number }) {
-  return (
-    <div className="flow-network">
-      <svg
-        viewBox="0 0 380 350"
-        role="img"
-        aria-label="Simulated regional interconnector network. Bulgaria exports electricity toward Greece and Serbia."
-      >
-        <defs>
-          <pattern
-            id="network-dots"
-            width="18"
-            height="18"
-            patternUnits="userSpaceOnUse"
-          >
-            <circle cx="1" cy="1" r=".7" fill="var(--border-strong)" />
-          </pattern>
-          <marker
-            id="arrow-mint"
-            markerWidth="5"
-            markerHeight="5"
-            refX="4"
-            refY="2.5"
-            orient="auto"
-          >
-            <path d="M0 0L5 2.5L0 5" fill="var(--mint)" />
-          </marker>
-        </defs>
-        <rect x="0" y="0" width="380" height="350" fill="url(#network-dots)" />
-        {edges.map(([a, b, mw]) => {
-          const from = nodes.find((n) => n.code === a)!,
-            to = nodes.find((n) => n.code === b)!,
-            active = a === "BG" || b === "BG";
-          const dx = to.x - from.x,
-            dy = to.y - from.y,
-            len = Math.hypot(dx, dy);
-          return (
-            <g key={a + b}>
-              <line
-                x1={from.x + (dx / len) * 19}
-                y1={from.y + (dy / len) * 19}
-                x2={to.x - (dx / len) * 22}
-                y2={to.y - (dy / len) * 22}
-                stroke={active ? "var(--mint)" : "var(--slate)"}
-                strokeWidth={active ? 1.6 : 1}
-                strokeDasharray={active ? undefined : "4 4"}
-                markerEnd={active ? "url(#arrow-mint)" : undefined}
-              />
-              <rect
-                x={(from.x + to.x) / 2 - 19}
-                y={(from.y + to.y) / 2 - 8}
-                width="38"
-                height="16"
-                rx="3"
-                fill="var(--panel)"
-              />
-              <text
-                x={(from.x + to.x) / 2}
-                y={(from.y + to.y) / 2 + 3}
-                textAnchor="middle"
-                fill={active ? "var(--mint)" : "var(--muted)"}
-                fontSize="14"
-                fontFamily="inherit"
-              >
-                {a === "BG" && b === "GR" ? flow + 94 : mw}
-              </text>
-            </g>
-          );
-        })}
-        {nodes.map((n) => (
-          <g key={n.code}>
-            <circle
-              cx={n.x}
-              cy={n.y}
-              r={n.code === "BG" ? 22 : 18}
-              fill={n.code === "BG" ? "var(--mint-dim)" : "var(--raised)"}
-              stroke={n.code === "BG" ? "var(--mint)" : "var(--border-strong)"}
-            />
-            <text
-              x={n.x}
-              y={n.y + 4}
-              fill={n.code === "BG" ? "var(--mint)" : "var(--text)"}
-              textAnchor="middle"
-              fontSize="14"
-              fontWeight="600"
-              fontFamily="inherit"
-            >
-              {n.code}
-            </text>
-          </g>
-        ))}
-      </svg>
-      <div className="network-caption">
-        <span>
-          <span className="legend-line" style={{ background: "var(--mint)" }} />
-          BG interconnections
-        </span>
-        <span>Scheduled flow · MW</span>
-      </div>
-    </div>
   );
 }
 export const countrySeries = countries

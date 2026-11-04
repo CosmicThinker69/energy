@@ -2,7 +2,7 @@
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useState, type FormEvent } from "react";
-import { plans, planName, type Plan } from "@/lib/config";
+
 import { Badge, Icon, Logo } from "./ui";
 export function AuthPage({
   mode,
@@ -11,7 +11,6 @@ export function AuthPage({
 }) {
   const router = useRouter(),
     params = useSearchParams();
-  const showSeedAccounts = process.env.NODE_ENV !== "production";
   const [error, setError] = useState(""),
     [busy, setBusy] = useState(false),
     [showPassword, setShowPassword] = useState(false),
@@ -56,11 +55,6 @@ export function AuthPage({
       setBusy(false);
     }
   };
-  const demo = (p: Plan) => {
-    setEmail(`${p}@demo.com`);
-    setPassword("Demo123!");
-    setError("");
-  };
   return (
     <main
       className={`auth-layout ${mode === "register" ? "register-layout" : ""}`}
@@ -85,62 +79,12 @@ export function AuthPage({
             forces moving Europe’s energy markets.
           </p>
           <div className="auth-market-preview">
-            <div className="auth-preview-head">
-              <div>
-                <span className="muted small">Bulgaria · Day-ahead price</span>
-                <h2>
-                  €87.42 <small>/ MWh</small>
-                </h2>
-              </div>
-              <Badge tone="green">↘ 1.8%</Badge>
-            </div>
-            <svg
-              viewBox="0 0 480 110"
-              role="img"
-              aria-label="Illustrative daily electricity price curve"
-            >
-              <defs>
-                <linearGradient id="auth-fill" x1="0" x2="0" y1="0" y2="1">
-                  <stop stopColor="var(--mint)" stopOpacity=".15" />
-                  <stop offset="1" stopColor="var(--mint)" stopOpacity="0" />
-                </linearGradient>
-              </defs>
-              {[25, 55, 85].map((y) => (
-                <line
-                  key={y}
-                  x1="0"
-                  x2="480"
-                  y1={y}
-                  y2={y}
-                  stroke="var(--border)"
-                  strokeDasharray="3 5"
-                />
-              ))}
-              <path
-                d="M0 62 L20 68 L40 58 L60 64 L80 40 L100 44 L120 28 L140 42 L160 48 L180 65 L200 78 L220 83 L240 80 L260 85 L280 68 L300 60 L320 50 L340 35 L360 21 L380 32 L400 24 L420 35 L440 43 L460 39 L480 49 L480 110 L0 110 Z"
-                fill="url(#auth-fill)"
-              />
-              <path
-                d="M0 62 L20 68 L40 58 L60 64 L80 40 L100 44 L120 28 L140 42 L160 48 L180 65 L200 78 L220 83 L240 80 L260 85 L280 68 L300 60 L320 50 L340 35 L360 21 L380 32 L400 24 L420 35 L440 43 L460 39 L480 49"
-                stroke="var(--mint)"
-                strokeWidth="2"
-                fill="none"
-              />
-            </svg>
-            <div className="auth-chart-labels">
-              <span>00:00</span>
-              <span>06:00</span>
-              <span>12:00</span>
-              <span>18:00</span>
-              <span>23:00 UTC</span>
-            </div>
-            <div className="auth-preview-bottom">
-              <span>
-                <span className="status-dot" />
-                Simulated live market data
-              </span>
-              <span>8 European markets</span>
-            </div>
+            <h2>Understand the reported market.</h2>
+            <p>
+              Explore published electricity prices, generation and cross-border
+              exchanges, with source attribution and visible data gaps.
+            </p>
+            <p>Sign in to view the latest collected observations.</p>
           </div>
         </div>
         <div className="auth-story-footer">
@@ -364,30 +308,6 @@ export function AuthPage({
               </button>
             </form>
           )}
-          {mode === "login" && showSeedAccounts && (
-            <div className="demo-accounts">
-              <div className="divider-label">
-                <span>Just looking around?</span>
-              </div>
-              <p>Choose a seeded test account for an access level.</p>
-              <div className="demo-buttons">
-                {plans.map((p) => (
-                  <button
-                    type="button"
-                    key={p}
-                    className={`button ${email === `${p}@demo.com` ? "selected" : ""}`}
-                    onClick={() => demo(p)}
-                  >
-                    {planName(p)}
-                    <Icon name="right" size={12} />
-                  </button>
-                ))}
-              </div>
-              <small>
-                All seeded accounts use <code>Demo123!</code>
-              </small>
-            </div>
-          )}
           {mode === "forgot" && !complete && (
             <Link href="/login" className="back-link">
               <Icon name="left" size={14} />
@@ -396,7 +316,7 @@ export function AuthPage({
           )}
           <div className="auth-disclaimer">
             <Icon name="shield" size={14} />
-            <span>Secure account access. Market data remains simulated.</span>
+            <span>Secure account access. Published provider data.</span>
           </div>
         </div>
       </section>

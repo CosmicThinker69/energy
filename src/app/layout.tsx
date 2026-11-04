@@ -4,7 +4,7 @@ import "./globals.css";
 export const metadata: Metadata = {
   title: { default: "TEMO · Energy Intelligence", template: "%s · TEMO" },
   description:
-    "European electricity market intelligence. A complete demonstration portal with live simulated energy analytics.",
+    "European electricity market intelligence from published prices, generation and cross-border data.",
   icons: { icon: "/icon.svg" },
 };
 export default function RootLayout({

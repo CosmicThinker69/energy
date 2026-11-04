@@ -36,7 +36,7 @@ export const planDetails: Record<
     description: "A broader view of the market.",
     features: [
       "Everything in Basic",
-      "Regional & balancing markets",
+      "Regional electricity markets",
       "Renewables & cross-border flows",
       "Data Explorer & CSV exports",
     ],
@@ -46,8 +46,7 @@ export const planDetails: Record<
     features: [
       "Everything in Professional",
       "Negative price analysis",
-      "Historical & advanced intelligence",
-      "Advanced research reports",
+      "Historical market analysis",
       "Ask TEMO research assistant",
     ],
   },

@@ -45,7 +45,7 @@ for (const route of [
   "/dashboards/day-ahead",
   "/explorer",
   "/settings",
-  "/reports",
+  "/data",
   "/help",
 ]) {
   await page.goto("http://localhost:3000" + route);
@@ -81,7 +81,7 @@ for (const width of [360, 390, 768, 1024, 1440]) {
     "/dashboards/day-ahead",
     "/explorer",
     "/settings",
-    "/reports",
+    "/data",
     "/help",
   ]) {
     await page.goto("http://localhost:3000" + route);

@@ -138,7 +138,7 @@ export function Settings() {
             </div>
             <div>
               <dt>Data source</dt>
-              <dd>Simulated</dd>
+              <dd>Published provider observations</dd>
             </div>
             <div>
               <dt>Time zone</dt>

@@ -16,6 +16,9 @@ export const nativeDashboardKeys = [
   "intelligence",
 ] as const;
 export type NativeDashboardKey = (typeof nativeDashboardKeys)[number];
+export const availableNativeDashboardKeys = nativeDashboardKeys.filter(
+  (key) => key !== "balancing" && key !== "intelligence",
+);
 
 export type DashboardRecord = {
   id: string;

@@ -3,7 +3,7 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 import { canAccessPlan, planName } from "@/lib/config";
 import { dashboardIcon, type DashboardRecord } from "@/lib/dashboard";
-import { generateMarketRows } from "@/lib/market";
+import { useMarket } from "./use-market";
 import { usePortal } from "./portal-provider";
 import { Badge, EmptyState, Icon } from "./ui";
 import { Sparkline } from "./charts";
@@ -12,10 +12,20 @@ export function DashboardLibrary({
 }: {
   dashboards: DashboardRecord[];
 }) {
-  const { user, live, requestUpgrade } = usePortal();
+  const { user, requestUpgrade } = usePortal();
   const [category, setCategory] = useState("All dashboards"),
     [query, setQuery] = useState(""),
     [available, setAvailable] = useState(false);
+  const { data, loading } = useMarket(
+    {
+      dashboard: "overview",
+      country: "BG",
+      days: "1",
+      resolution: "hourly",
+      date: new Date().toISOString().slice(0, 10),
+    },
+    dashboards.some((d) => d.viewerType === "native"),
+  );
   const filtered = dashboards.filter(
     (d) =>
       (category === "All dashboards" || d.category === category) &&
@@ -33,7 +43,7 @@ export function DashboardLibrary({
       <div className="page-heading">
         <div className="library-heading">
           <h1>Market dashboards</h1>
-          <p>Browse live and simulated dashboards available for your plan.</p>
+          <p>Explore published market data and verified source dashboards.</p>
         </div>
         <Badge tone="green">
           <Icon name="sparkles" size={13} />
@@ -80,11 +90,22 @@ export function DashboardLibrary({
         </div>
       </div>
       <div className="catalogue-grid">
-        {filtered.map((d, i) => {
+        {filtered.map((d) => {
           const locked = !canAccessPlan(user.plan, d.minimumPlan);
-          const rows = generateMarketRows({
-            country: ["BG", "RO", "HU"][i % 3],
-          });
+          const rows = data?.rows || [];
+          const key =
+            d.nativeKey === "energy-mix"
+              ? "generation"
+              : d.nativeKey === "renewables"
+                ? "renewableGeneration"
+                : d.nativeKey === "cross-border"
+                  ? "netFlow"
+                  : "price";
+          const values = rows.map((row) =>
+            typeof row[key] === "number" ? Number(row[key]) : null,
+          );
+          const hasPreview =
+            d.viewerType === "native" && values.some((v) => v !== null);
           return (
             <article
               className={`dashboard-card ${locked ? "locked" : ""}`}
@@ -117,38 +138,19 @@ export function DashboardLibrary({
                 className={`dashboard-preview ${d.category === "Generation" ? "preview-generation" : ""}`}
                 aria-hidden="true"
               >
-                {d.category === "Generation" ? (
-                  <div className="preview-bars">
-                    {rows.slice(0, 18).map((r, j) => (
-                      <span
-                        key={j}
-                        style={{
-                          height: `${20 + r.renewable * 1.1}%`,
-                          background:
-                            j % 3 === 0
-                              ? "var(--cyan)"
-                              : j % 3 === 1
-                                ? "var(--mint)"
-                                : "var(--blue)",
-                        }}
-                      />
-                    ))}
-                  </div>
+                {hasPreview ? (
+                  <Sparkline
+                    values={values}
+                    color={locked ? "var(--slate)" : "var(--mint)"}
+                  />
                 ) : (
-                  <>
-                    <Sparkline
-                      values={rows.map((r) =>
-                        d.nativeKey === "cross-border" ? r.netFlow : r.price,
-                      )}
-                      color={locked ? "var(--slate)" : "var(--mint)"}
-                    />
-                    <Sparkline
-                      values={rows.map(
-                        (r, j) => r.price + Math.sin(j / 3) * 19,
-                      )}
-                      color={locked ? "var(--slate)" : "var(--cyan)"}
-                    />
-                  </>
+                  <span>
+                    {d.viewerType === "native"
+                      ? loading
+                        ? "Loading observations…"
+                        : "No preview available"
+                      : "Opens the source dashboard"}
+                  </span>
                 )}
               </div>
               <span className="card-category">{d.category}</span>
@@ -160,7 +162,7 @@ export function DashboardLibrary({
                     className={`status-dot ${d.viewerType === "native" ? "static" : ""}`}
                   />
                   {d.viewerType === "native"
-                    ? "Simulated market data"
+                    ? "Published provider data"
                     : d.viewerType === "streamlit"
                       ? "Streamlit dashboard"
                       : "External HTML dashboard"}
@@ -168,10 +170,10 @@ export function DashboardLibrary({
                 <span>
                   <Icon name="clock" size={11} />
                   {d.viewerType !== "native"
-                    ? "Hosted source"
-                    : live
-                      ? `Updated ${new Date(live.timestamp).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", timeZone: "UTC" })}`
-                      : "Updated 00:00 UTC"}
+                    ? "Source dashboard"
+                    : data?.updatedAt
+                      ? `BG · collected ${new Date(data.updatedAt).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", timeZone: "UTC" })} UTC`
+                      : "Awaiting observations"}
                 </span>
               </div>
               {locked ? (
@@ -214,8 +216,8 @@ export function DashboardLibrary({
       <div className="catalogue-foot">
         <Icon name="shield" size={15} />
         <span>
-          Native dashboards use simulated data; live sources are clearly marked.
-          Access follows your current account plan.
+          Previews use collected Bulgarian observations. Data gaps remain
+          visible. Access follows your current account plan.
         </span>
         <Link href="/settings">
           Compare plans

@@ -6,6 +6,7 @@ import pg from "pg";
 const marketMigrations = new Set([
   "003_energy_data.sql",
   "004_energy_source_metadata.sql",
+  "007_market_interval_lookup.sql",
 ]);
 const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL });
 try {

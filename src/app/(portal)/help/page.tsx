@@ -7,11 +7,11 @@ const faqs = [
   ],
   [
     "Is this real electricity market data?",
-    "All prices, generation figures, flows, market events, and research are simulated. Historical records are deterministic and include daily demand shapes, solar production curves, and occasional negative-price scenarios.",
+    "Market views use published provider observations with source attribution. Missing data remains unavailable. Views without verified metric implementations are hidden.",
   ],
   [
     "How does the live feed work?",
-    "An authenticated server-sent event connection sends a snapshot every five seconds. The overview values and the newest point on today’s Bulgaria and Romania price charts update automatically. The connection status indicates when the stream is reconnecting.",
+    "Views refresh from collected observations. The connection indicator describes access to the data service; interval and collection timestamps show the age of the data. Prices do not move between published observations.",
   ],
   [
     "How can I download data?",
@@ -23,7 +23,7 @@ const faqs = [
   ],
   [
     "What time zone do the charts use?",
-    "All market interval timestamps and date filters use UTC. The header’s update clock uses your browser’s local time. Daily and monthly observations aggregate the underlying simulated hourly records.",
+    "Market intervals and date filters use UTC. Hourly, daily and monthly display values are duration weighted from native provider intervals; incomplete series remain unavailable.",
   ],
   [
     "Can I connect my existing Streamlit or Plotly dashboards?",
@@ -69,7 +69,7 @@ export default function Help() {
       </div>
       <Panel
         title="Your questions, answered"
-        subtitle="A practical guide to the TEMO demonstration"
+        subtitle="A practical guide to published market data"
       >
         <div className="faq-list">
           {faqs.map(([q, a]) => (

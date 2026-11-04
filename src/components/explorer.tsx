@@ -12,7 +12,7 @@ const columns = [
   { key: "price", label: "Day-ahead price", unit: "EUR / MWh" },
   { key: "generation", label: "Generation", unit: "MW" },
   { key: "renewable", label: "Renewables", unit: "%" },
-  { key: "balancing", label: "Balancing price", unit: "EUR / MWh" },
+  { key: "load", label: "Demand", unit: "MW" },
   { key: "import", label: "Import", unit: "MW" },
   { key: "export", label: "Export", unit: "MW" },
 ];

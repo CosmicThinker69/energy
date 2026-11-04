@@ -67,6 +67,12 @@ test("stored prices use duration weights and leave partially covered hours unava
     resolution: "quarter-hourly",
   });
   assert.equal(negative.rows[0].price, -10);
+  assert.equal(negative.rows[0].negativeIntervals, 1);
+  assert.equal(negative.rows[1].negativeIntervals, 0);
+  assert.equal(
+    negative.rows.reduce((sum, row) => sum + Number(row.negativeHours || 0), 0),
+    0.5,
+  );
 });
 
 test("stored provider revisions are archived only when data changes", async () => {

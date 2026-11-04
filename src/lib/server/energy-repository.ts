@@ -106,31 +106,42 @@ export async function storedMarketRows({
     updated_at: Date;
     negative_hours: number;
     negative_intervals: number;
+    bucket_hours: number;
   }>(
     `
-    WITH buckets AS (
-      SELECT greatest(t,$2::timestamptz) AS start,least(t+$4::interval,$3::timestamptz) AS stop
-      FROM generate_series(date_trunc($5,$2::timestamptz AT TIME ZONE 'UTC') AT TIME ZONE 'UTC',
-        $3::timestamptz-interval '1 microsecond',$4::interval) AS t
-    ), selected AS (
+    WITH observed AS MATERIALIZED (
       SELECT o.* FROM energy.observations o
       WHERE area=$1 AND interval_start < $3 AND interval_end > $2 AND forecast_run=''
-        AND dataset IN ('day_ahead_price','generation','load','imbalance_price','imbalance_volume','scheduled_flow')
+        AND tstzrange(interval_start,interval_end,'[)') && tstzrange($2,$3,'[)')
+        AND dataset IN ('day_ahead_price','generation','load','scheduled_flow')
         AND source IN ('entsoe','energy-charts')
-        AND (dataset<>'generation' OR source='energy-charts' OR dimensions->>'measurement'='generation')
+    ), entsoe_datasets AS MATERIALIZED (
+      SELECT DISTINCT dataset FROM observed WHERE source='entsoe'
+    ), selected AS MATERIALIZED (
+      SELECT o.* FROM observed o
+      WHERE (dataset<>'generation' OR source='energy-charts' OR dimensions->>'measurement'='generation')
         AND (source<>'energy-charts' OR dataset='scheduled_flow' OR NOT EXISTS (
-          SELECT 1 FROM energy.observations p WHERE p.source='entsoe' AND p.dataset=o.dataset
-          AND p.area=o.area AND p.interval_start<$3 AND p.interval_end>$2))
+          SELECT 1 FROM entsoe_datasets p WHERE p.dataset=o.dataset))
     )
-    SELECT b.start AS bucket,o.dataset,o.metric,o.source,o.dimensions,
+    SELECT b.start AS bucket,o.dataset,o.metric,o.source,o.dimensions,EXTRACT(epoch FROM b.stop-b.start)/3600 AS bucket_hours,
       CASE WHEN sum(EXTRACT(epoch FROM least(o.interval_end,b.stop)-greatest(o.interval_start,b.start)))
           FILTER(WHERE o.value IS NOT NULL) BETWEEN EXTRACT(epoch FROM b.stop-b.start)-0.001 AND EXTRACT(epoch FROM b.stop-b.start)+0.001
         THEN sum(o.value * EXTRACT(epoch FROM least(o.interval_end,b.stop)-greatest(o.interval_start,b.start)))
           /nullif(sum(EXTRACT(epoch FROM least(o.interval_end,b.stop)-greatest(o.interval_start,b.start))) FILTER(WHERE o.value IS NOT NULL),0)
         ELSE NULL END AS value,max(o.last_seen_at) AS updated_at,
         coalesce(sum(EXTRACT(epoch FROM least(o.interval_end,b.stop)-greatest(o.interval_start,b.start))) FILTER(WHERE o.value<0),0)/3600 AS negative_hours,
-        count(*) FILTER(WHERE o.value<0) AS negative_intervals
-    FROM buckets b JOIN selected o ON o.interval_start<b.stop AND o.interval_end>b.start
+        count(*) FILTER(WHERE o.value<0 AND o.interval_start>=b.start AND o.interval_start<b.stop) AS negative_intervals
+    FROM selected o
+    CROSS JOIN LATERAL generate_series(
+      CASE WHEN $5='month'
+        THEN date_trunc('month',greatest(o.interval_start,$2::timestamptz) AT TIME ZONE 'UTC') AT TIME ZONE 'UTC'
+        ELSE date_bin($4::interval,greatest(o.interval_start,$2::timestamptz),'1970-01-01 00:00:00+00'::timestamptz)
+      END,
+      least(o.interval_end,$3::timestamptz)-interval '1 microsecond',$4::interval
+    ) t
+    CROSS JOIN LATERAL (
+      SELECT greatest(t,$2::timestamptz) AS start,least(t+$4::interval,$3::timestamptz) AS stop
+    ) b
     GROUP BY b.start,b.stop,o.dataset,o.metric,o.source,o.dimensions ORDER BY b.start,o.dataset,o.metric
   `,
     [country, start, end, step, trunc],
@@ -148,6 +159,8 @@ export async function storedMarketRows({
     hydro_run_of_river: "hydro",
     hydro_water_reservoir: "hydro",
     hydro_pumped_storage: "storage",
+    energy_storage: "storage",
+    battery: "storage",
     fossil_brown_coal_lignite: "coal",
     fossil_hard_coal: "coal",
     fossil_gas: "gas",
@@ -173,6 +186,7 @@ export async function storedMarketRows({
           ? ""
           : ` ${time.slice(11, 16)}`),
       country,
+      durationHours: Number(point.bucket_hours),
     };
     byTime.set(time, row);
     sources.add(point.source);
@@ -298,6 +312,6 @@ export async function storedMarketRows({
     timezone: "UTC",
     mode: "stored",
     missingDataPolicy:
-      "Missing fields are unavailable. No interpolation or simulated fallback.",
+      "Unavailable fields are omitted and reported gaps are preserved.",
   };
 }

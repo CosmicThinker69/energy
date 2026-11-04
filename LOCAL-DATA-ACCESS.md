@@ -40,7 +40,6 @@ On the Railway **energy** service:
 
 ```dotenv
 DATA_BACKEND=local-agent
-MARKET_DATA_MODE=stored
 LOCAL_DATA_AGENT_TOKEN=<server-only random token>
 DATABASE_URL=<existing Railway private connection>
 ```

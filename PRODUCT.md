@@ -10,7 +10,7 @@ European electricity market analysts, renewable asset operators, and B2B custome
 
 ## Product Purpose
 
-A presentable full-stack demonstration of authentication, subscription access, a dashboard catalogue, realistic market analytics, and asynchronous updates. Mock repositories and a reusable viewer provide replacement points for future Python, PostgreSQL, Streamlit, and Plotly integrations.
+A customer portal for published electricity, gas and weather observations. It provides authenticated access, source attribution, native history, accurate derived statistics and visible coverage gaps. The hosted portal reads the full local market database through an authenticated outbound agent.
 
 ## Brand Personality
 
@@ -22,7 +22,7 @@ Generic admin templates, oversized decorative heroes, rainbow dashboards, empty 
 
 ## Design Principles
 
-Make market conditions understandable at a glance. Keep higher-tier capabilities discoverable. Distinguish simulated live information from history. Make each control perform a useful action. Preserve analytical context across views.
+Make reported market conditions understandable at a glance. Show only implemented metrics backed by provider observations. Keep higher-tier capabilities discoverable. Display interval and collection times, preserve gaps and analytical context, and make each control perform a useful action.
 
 ## Accessibility & Inclusion
 

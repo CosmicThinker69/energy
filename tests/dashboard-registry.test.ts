@@ -66,6 +66,24 @@ test("PostgreSQL dashboard registry is dynamic, validated, and seed-safe", async
   const enabled = await dashboardRepository.getEnabledDashboards();
   assert.equal(enabled[0].slug, "entsoe-energy");
   assert.ok(enabled.every((dashboard) => dashboard.enabled));
+  assert.ok(
+    enabled.every(
+      (d) => !["balancing", "intelligence"].includes(d.nativeKey || ""),
+    ),
+  );
+  assert.equal(
+    await dashboardRepository.getDashboardBySlug("intelligence"),
+    null,
+  );
+  assert.equal(await dashboardRepository.getDashboardBySlug("balancing"), null);
+  const hidden = await dashboardRepository.getDashboardBySlug(
+    "intelligence",
+    true,
+  );
+  assert.ok(hidden);
+  await assert.rejects(
+    dashboardRepository.setDashboardEnabled(hidden.id, true, adminId),
+  );
 
   const created = await dashboardRepository.createDashboard(
     {

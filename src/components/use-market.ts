@@ -6,7 +6,7 @@ export type MarketData = {
   comparisons: Record<string, MarketRow[]>;
   updatedAt: string | null;
   source: string;
-  mode?: "demo" | "stored";
+  mode: "stored";
 };
 export function useMarket(params: Record<string, string>, enabled = true) {
   const query = new URLSearchParams(params).toString();

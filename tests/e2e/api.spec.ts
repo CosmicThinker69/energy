@@ -54,9 +54,7 @@ test("API validation, forged access, session persistence, and logout revocation"
   expect(registered.headers()["set-cookie"]).toContain("Max-Age=2592000");
   expect((await request.get("/api/auth/session")).status()).toBe(200);
   expect(
-    (
-      await request.get("/api/market?dashboard=balancing&plan=premium")
-    ).status(),
+    (await request.get("/api/market?dashboard=regional&plan=premium")).status(),
   ).toBe(403);
   expect(
     (

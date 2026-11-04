@@ -1,15 +1,12 @@
 import { authorize, authorizeDashboardPlan } from "@/lib/server/auth";
 import { dashboardRepository } from "@/lib/server/dashboard-repository";
-import {
-  countries,
-  generateMarketRows,
-  toCsv,
-  type MarketRow,
-} from "@/lib/market";
+import { countries, toCsv, type MarketRow } from "@/lib/market";
 import { readMarketRows as storedMarketRows } from "@/lib/server/energy-service";
 import { LocalDataUnavailable } from "@/lib/server/local-data-bridge";
 export async function GET(request: Request) {
   try {
+    const session = await authorize();
+    if (session.error) return session.error;
     const p = new URL(request.url).searchParams;
     const id = p.get("dashboard") || "day-ahead";
     const dashboard =
@@ -71,21 +68,13 @@ export async function GET(request: Request) {
       .split(",")
       .filter((c) => countries.some((m) => m.code === c) && c !== country)
       .slice(0, 7);
-    const demo = process.env.MARKET_DATA_MODE === "demo";
-    const primary = demo
-      ? null
-      : await storedMarketRows({ country, days, resolution, date });
-    const rows =
-      primary?.rows ||
-      (demo ? generateMarketRows({ country, days, resolution, date }) : []);
+    const primary = await storedMarketRows({ country, days, resolution, date });
+    const rows = primary.rows;
     const comparisons: Record<string, MarketRow[]> = Object.fromEntries(
       await Promise.all(
         compare.map(async (c) => [
           c,
-          demo
-            ? generateMarketRows({ country: c, days, resolution, date })
-            : (await storedMarketRows({ country: c, days, resolution, date }))
-                .rows,
+          (await storedMarketRows({ country: c, days, resolution, date })).rows,
         ]),
       ),
     );
@@ -104,9 +93,9 @@ export async function GET(request: Request) {
       {
         rows,
         comparisons,
-        updatedAt: demo ? new Date().toISOString() : primary?.updatedAt,
-        source: demo ? "Simulated market data" : primary?.source,
-        mode: demo ? "demo" : "stored",
+        updatedAt: primary.updatedAt,
+        source: primary.source,
+        mode: "stored",
         timezone: "UTC",
       },
       { headers: { "Cache-Control": "no-store" } },

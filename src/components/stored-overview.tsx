@@ -41,6 +41,7 @@ export function StoredOverview({
         typeof r.generation === "number" &&
         Date.parse(r.timestamp) <= Date.now(),
     );
+  const actualGeneration = actual?.generation ?? NaN;
   const price = marketAverage(rows, "price");
   const regional = countries
     .map((c) => marketAverage(sets[c.code] || [], "price"))
@@ -60,9 +61,11 @@ export function StoredOverview({
   const mix = generationMix.map((m) => ({
     ...m,
     value:
-      actual && actual.generation > 0
-        ? (Number(actual[m.name.toLowerCase()] || 0) / actual.generation) * 100
-        : 0,
+      actual && actualGeneration > 0
+        ? typeof actual[m.name.toLowerCase()] === "number"
+          ? (Number(actual[m.name.toLowerCase()]) / actualGeneration) * 100
+          : null
+        : null,
   }));
   return (
     <>
@@ -135,7 +138,7 @@ export function StoredOverview({
               ],
               [
                 "Latest generation",
-                formatNumber(actual ? actual.generation / 1000 : NaN),
+                formatNumber(actual ? actualGeneration / 1000 : NaN),
                 "GW",
               ],
               ["Renewable share", formatNumber(actual?.renewable, 1), "%"],
@@ -179,7 +182,7 @@ export function StoredOverview({
             >
               {actual ? (
                 <>
-                  <MixChart generation={actual.generation / 1000} mix={mix} />
+                  <MixChart generation={actualGeneration / 1000} mix={mix} />
                   <p>
                     Generation includes all reported technologies. The chart
                     shows the main technology groups.

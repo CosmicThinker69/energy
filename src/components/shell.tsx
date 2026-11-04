@@ -4,7 +4,6 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { canAccessPlan, planName } from "@/lib/config";
 import { dashboardIcon, type DashboardRecord } from "@/lib/dashboard";
-import { marketEvents } from "@/lib/market";
 import { Badge, EmptyState, Icon, Logo, Modal } from "./ui";
 import { usePortal } from "./portal-provider";
 function navigationIsActive(pathname: string, href: string) {
@@ -21,7 +20,7 @@ export function Shell({
 }) {
   const pathname = usePathname(),
     router = useRouter();
-  const { user, live, status, toast, requestUpgrade, dataMode } = usePortal();
+  const { user, status, toast, requestUpgrade } = usePortal();
   const navigation = [
     { label: "Overview", href: "/", icon: "overview" },
     {
@@ -32,14 +31,11 @@ export function Shell({
     },
     { label: "Data Explorer", href: "/explorer", icon: "database" },
     { label: "Data catalogue", href: "/data", icon: "database" },
-    { label: "Reports", href: "/reports", icon: "report" },
     { label: "Ask TEMO", href: "/assistant", icon: "sparkles" },
   ];
   const [mobile, setMobile] = useState(false),
     [searchOpen, setSearchOpen] = useState(false),
     [query, setQuery] = useState(""),
-    [notifications, setNotifications] = useState(false),
-    [read, setRead] = useState(false),
     [profile, setProfile] = useState(false);
   useEffect(() => {
     setMobile(false);
@@ -196,29 +192,13 @@ export function Shell({
             <div className="header-live">
               <Badge dot tone={status === "live" ? "green" : "amber"}>
                 {status === "live"
-                  ? dataMode === "demo"
-                    ? "Markets live"
-                    : "Data connected"
+                  ? "Data connected"
                   : status === "connecting"
                     ? "Connecting"
                     : "Reconnecting"}
               </Badge>
-              <small>
-                {live
-                  ? `Updated ${new Date(live.timestamp).toLocaleTimeString("en-GB")}`
-                  : dataMode === "demo"
-                    ? "Connecting to demo feed"
-                    : "Provider data · hourly collection"}
-              </small>
+              <small>Published provider data</small>
             </div>
-            <button
-              className="icon-button notification-button"
-              aria-label="Open notifications"
-              onClick={() => setNotifications(true)}
-            >
-              <Icon name="bell" />
-              {!read && <span className="notification-dot" />}
-            </button>
             <div className="profile-wrap">
               <button
                 className="profile-trigger"
@@ -270,11 +250,7 @@ export function Shell({
           {children}
         </main>
         <footer className="app-footer">
-          <span>
-            {dataMode === "demo"
-              ? "Native dashboard data is simulated"
-              : "Stored provider observations · missing values remain gaps"}
-          </span>
+          <span>Stored provider observations · missing values remain gaps</span>
           <span>Times in UTC</span>
         </footer>
       </div>
@@ -328,33 +304,6 @@ export function Shell({
             )}
           </div>
         </div>
-      </Modal>
-      <Modal
-        open={notifications}
-        onClose={() => setNotifications(false)}
-        title="Market notifications"
-      >
-        <div className="notification-head">
-          <span className="muted small">Your European market briefing</span>
-          <button className="text-button" onClick={() => setRead(true)}>
-            <Icon name="checks" size={14} />
-            {read ? "All read" : "Mark all as read"}
-          </button>
-        </div>
-        {(dataMode === "demo" ? marketEvents : []).map((event, i) => (
-          <div className="notification-row" key={event.title}>
-            <span className={`event-icon ${event.level}`}>
-              <Icon name={i === 0 ? "activity" : i === 1 ? "sun" : "arrows"} />
-            </span>
-            <div>
-              <strong>{event.title}</strong>
-              <p>{event.detail}</p>
-              <small>{event.time} · Demo alert</small>
-            </div>
-            {!read && <span className="status-dot" />}
-          </div>
-        ))}
-        {dataMode === "stored" && <p>No market alerts have been generated.</p>}
       </Modal>
     </div>
   );
